@@ -4,6 +4,7 @@ import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 import type {
   ExpenseGoal,
+  GoalMode,
   LiveData,
   OnboardingState,
   OnboardingStep,
@@ -39,10 +40,10 @@ export interface DFPStore {
   setCrash: (value: number) => void;
   setPause: (value: number) => void;
   setActualDividend: (monthIndex: number, amount: number) => void;
-  addExpenseGoal: (label: string, amount: number) => void;
+  addExpenseGoal: (name: string, amountMonthly: number) => void;
   updateExpenseGoal: (
     id: string,
-    patch: Partial<Pick<ExpenseGoal, "label" | "amount">>,
+    patch: Partial<Pick<ExpenseGoal, "name" | "amountMonthly" | "enabledForGoal">>,
   ) => void;
   removeExpenseGoal: (id: string) => void;
   reorderExpenseGoals: (orderedIds: string[]) => void;
@@ -63,6 +64,8 @@ const initialGoal: UserGoal = {
   targetPeriod: "monthly",
   taxEnabled: true,
   taxRate: 30,
+  goalMode: "manual",
+  coveragePct: 100,
   preferredTypes: [],
   selectedArchetype: null,
 };
@@ -79,6 +82,10 @@ function makeExpenseGoalId(): string {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
 }
 
+function isGoalMode(value: unknown): value is GoalMode {
+  return value === "manual" || value === "expenses";
+}
+
 export function sanitizeGoalPatch(patch: Partial<UserGoal>): Partial<UserGoal> {
   const out: Partial<UserGoal> = { ...patch };
 
@@ -87,6 +94,8 @@ export function sanitizeGoalPatch(patch: Partial<UserGoal>): Partial<UserGoal> {
   if ("monthly" in out) out.monthly = clamp(Number(out.monthly) || 0, 0, 100_000);
   if ("years" in out) out.years = clamp(Math.round(Number(out.years) || 1), 1, 50, 1);
   if ("taxRate" in out) out.taxRate = clamp(Number(out.taxRate) || 0, 0, 100);
+  if ("coveragePct" in out) out.coveragePct = clamp(Number(out.coveragePct) || 0, 0, 100);
+  if ("goalMode" in out && !isGoalMode(out.goalMode)) out.goalMode = "manual";
   if ("preferredTypes" in out && Array.isArray(out.preferredTypes)) {
     out.preferredTypes = out.preferredTypes.slice(0, 4);
   }
@@ -207,7 +216,7 @@ export const useDFPStore = create<DFPStore>()(
           next[monthIndex] = clamp(amount, 0, Number.MAX_SAFE_INTEGER);
           return { actualDividends: next };
         }),
-      addExpenseGoal: (label, amount) =>
+      addExpenseGoal: (name, amountMonthly) =>
         set((state) => ({
           expenseGoals:
             state.expenseGoals.length >= 20
@@ -216,8 +225,9 @@ export const useDFPStore = create<DFPStore>()(
                   ...state.expenseGoals,
                   {
                     id: makeExpenseGoalId(),
-                    label: String(label).trim().slice(0, 60),
-                    amount: clamp(Number(amount) || 0, 0, 100_000),
+                    name: String(name).trim().slice(0, 60),
+                    amountMonthly: clamp(Number(amountMonthly) || 0, 0, 100_000),
+                    enabledForGoal: true,
                     createdAt: Date.now(),
                   },
                 ],
@@ -228,11 +238,15 @@ export const useDFPStore = create<DFPStore>()(
             goal.id === id
               ? {
                   ...goal,
-                  label: "label" in patch ? String(patch.label ?? "").slice(0, 60) : goal.label,
-                  amount:
-                    "amount" in patch
-                      ? clamp(Number(patch.amount) || 0, 0, 100_000)
-                      : goal.amount,
+                  name: "name" in patch ? String(patch.name ?? "").slice(0, 60) : goal.name,
+                  amountMonthly:
+                    "amountMonthly" in patch
+                      ? clamp(Number(patch.amountMonthly) || 0, 0, 100_000)
+                      : goal.amountMonthly,
+                  enabledForGoal:
+                    "enabledForGoal" in patch
+                      ? Boolean(patch.enabledForGoal)
+                      : goal.enabledForGoal,
                 }
               : goal,
           ),
@@ -275,19 +289,32 @@ export const useDFPStore = create<DFPStore>()(
       storage: createJSONStorage(() => localStorage),
       merge: (persisted, current) => {
         const incoming = (persisted as Partial<DFPStore>) ?? {};
+        const incomingGoal = incoming.goal ? sanitizeGoalPatch(incoming.goal) : {};
+        const normalizedExpenseGoals = (incoming.expenseGoals ?? []).map((goal) => ({
+          id: goal.id,
+          name: (goal as ExpenseGoal & { label?: string }).name ?? (goal as ExpenseGoal & { label?: string }).label ?? "",
+          amountMonthly:
+            (goal as ExpenseGoal & { amount?: number }).amountMonthly ??
+            (goal as ExpenseGoal & { amount?: number }).amount ??
+            0,
+          enabledForGoal: goal.enabledForGoal ?? true,
+          createdAt: goal.createdAt,
+        }));
+
         return {
           ...current,
           ...incoming,
           goal: {
             ...current.goal,
-            ...(incoming.goal ?? {}),
-            },
-            onboarding: {
-              ...initialOnboarding,
-              ...(incoming.onboarding ?? {}),
-            },
-          };
-        },
+            ...incomingGoal,
+          },
+          expenseGoals: normalizedExpenseGoals,
+          onboarding: {
+            ...initialOnboarding,
+            ...(incoming.onboarding ?? {}),
+          },
+        };
+      },
       partialize: (state) => ({
         goal: state.goal,
         fmpKey: state.fmpKey,

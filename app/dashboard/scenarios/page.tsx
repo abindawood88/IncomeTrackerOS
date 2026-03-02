@@ -10,8 +10,7 @@ export default function DashboardScenariosPage() {
   const pause = useDFPStore((s) => s.pause);
   const setCrash = useDFPStore((s) => s.setCrash);
   const setPause = useDFPStore((s) => s.setPause);
-  const goal = useDFPStore((s) => s.goal);
-  const metrics = useDerivedMetrics();
+    const metrics = useDerivedMetrics();
 
   return (
     <div className="space-y-4">
@@ -27,7 +26,7 @@ export default function DashboardScenariosPage() {
           {pause > 0 ? <div className="mt-2 text-xs text-gold-light">Contributions paused for selected period.</div> : null}
         </div>
       </div>
-      <ProjectionChart projData={metrics.projData} target={goal.targetIncome} color="#9b6dff" />
+      <ProjectionChart projData={metrics.projData} target={metrics.targetMonthly} color="#9b6dff" />
       <div className="grid gap-3 md:grid-cols-3">
         <MetricCard label="Freedom Year" val={metrics.freedomYr ? String(metrics.freedomYr) : "Not reached"} />
         <MetricCard label="Coverage" val={`${metrics.coverage}%`} color="gold" />

@@ -22,12 +22,12 @@ function getMonthlySchedule(payFreq: string, baseMonthly: number): number[] {
 }
 
 export default function YieldTrackerPage() {
-  const { enriched, totalVal, monthlyIncome, bYield } = useDerivedMetrics();
-  const goal = useDFPStore((s) => s.goal);
+  const metrics = useDerivedMetrics();
+  const { enriched, totalVal, monthlyIncome, bYield } = metrics;
   const actualDividends = useDFPStore((s) => s.actualDividends);
   const setActualDividend = useDFPStore((s) => s.setActualDividend);
   const [view, setView] = useState<"chart" | "table">("chart");
-  const taxMultiplier = goal.taxEnabled ? 1 - Math.max(0, Math.min(100, goal.taxRate)) / 100 : 1;
+  const taxMultiplier = metrics.taxEnabled ? 1 - metrics.taxRatePct / 100 : 1;
 
   const holdingRows = useMemo(() => {
     return enriched.map((h) => {
@@ -47,7 +47,7 @@ export default function YieldTrackerPage() {
   }, [holdingRows]);
 
   const annualTotal = monthlyTotals.reduce((s, v) => s + v, 0);
-  const goalMonthly = goal.targetPeriod === "yearly" ? goal.targetIncome / 12 : goal.targetIncome;
+  const goalMonthly = metrics.targetMonthly;
   const coverage = goalMonthly > 0 ? Math.min(100, (monthlyIncome / goalMonthly) * 100) : 0;
   const trackerData = useMemo(
     () => buildYieldTrackerData(actualDividends, monthlyTotals, goalMonthly),

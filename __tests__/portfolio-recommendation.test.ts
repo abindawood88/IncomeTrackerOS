@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { PORTFOLIO_TEMPLATES, validateETFCategoryConsistency } from "../lib/etf-db";
+import { ETF_DB, PORTFOLIO_TEMPLATES, validateETFCategoryConsistency } from "../lib/etf-db";
 import {
   buildRecommendations,
   compareTemplates,
@@ -192,3 +192,26 @@ assert.equal(desiredYieldForGoal("income", 1_000, 100_000, "monthly").desiredYie
 }
 
 assert.deepEqual(validateETFCategoryConsistency(), []);
+
+
+{
+  const result = buildRecommendations({
+    strategy: "hyper",
+    risk: "high",
+    targetMonthly: 1000,
+    capital: 100_000,
+    hasSetCapital: true,
+    targetPeriod: "monthly",
+    preferredTypes: ["Leveraged", "Option Income"],
+    baseTemplates: [],
+  });
+  assert.ok(result.warnings.some((warning) => warning.includes("leveraged ETFs")));
+  const leveragedTemplate = result.templates.find((tpl) => tpl.id.includes("leveraged") || tpl.name.includes("Hyper"));
+  if (leveragedTemplate) {
+    const leveragedWeight = leveragedTemplate.holdings.reduce(
+      (sum, h) => sum + (ETF_DB[h.ticker]?.leveraged ? h.weight : 0),
+      0,
+    );
+    assert.ok(leveragedWeight <= 0.2 + 1e-9);
+  }
+}
