@@ -1,9 +1,10 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ComponentType } from "react";
 import { buildHoldingSeeds, normalizeAllocations } from "@/lib/apply-portfolio";
 import { ETF_DB, PORTFOLIO_ARCHETYPES, PORTFOLIO_TEMPLATES } from "@/lib/etf-db";
+import { useHydrated } from "@/lib/use-hydrated";
 import {
   buildRecommendations,
   buildReviewUniverse,
@@ -42,7 +43,23 @@ const RISK_OPTIONS: Array<{ key: RiskTolerance; title: string; desc: string }> =
   { key: "high", title: "High", desc: "Accepts higher volatility for higher yield potential." },
 ];
 
+const iconClassName = "h-5 w-5";
+
+const ICON_MAP: Record<string, ComponentType<{ className?: string }>> = {
+  TrendingUp: ({ className }) => <span className={className}>📈</span>,
+  BarChart3: ({ className }) => <span className={className}>📊</span>,
+  Flame: ({ className }) => <span className={className}>🔥</span>,
+  Sprout: ({ className }) => <span className={className}>🌱</span>,
+  Zap: ({ className }) => <span className={className}>⚡</span>,
+  Shield: ({ className }) => <span className={className}>🛡️</span>,
+  Scale: ({ className }) => <span className={className}>⚖️</span>,
+  DollarSign: ({ className }) => <span className={className}>💵</span>,
+  Landmark: ({ className }) => <span className={className}>🏛️</span>,
+  Anchor: ({ className }) => <span className={className}>⚓</span>,
+};
+
 export default function OnboardPage() {
+  const hydrated = useHydrated();
   const router = useRouter();
   const goal = useDFPStore((s) => s.goal);
   const onboarding = useDFPStore((s) => s.onboarding);
@@ -119,6 +136,9 @@ export default function OnboardPage() {
       goal.preferredTypes,
     ],
   );
+
+
+  if (!hydrated) return null;
 
   const highestYield = comparisonRows.reduce((max, row) => Math.max(max, row.liveYield), 0);
   const riskRank: Record<"low" | "medium" | "high", number> = { low: 1, medium: 2, high: 3 };
@@ -421,6 +441,7 @@ export default function OnboardPage() {
           <div className="max-h-[32rem] overflow-y-auto pr-1">
             <div className="grid gap-4 md:grid-cols-2">
               {PORTFOLIO_ARCHETYPES.map((arch) => {
+                const Icon = ICON_MAP[arch.icon] ?? ICON_MAP.TrendingUp;
                 const active = goal.selectedArchetype === arch.key;
                 const riskTone =
                   arch.riskLevel === "low"
@@ -455,7 +476,7 @@ export default function OnboardPage() {
                         : `${arch.riskLevel.charAt(0).toUpperCase()}${arch.riskLevel.slice(1)} Risk`}
                     </span>
                     <div className={`mb-3 flex h-10 w-10 items-center justify-center rounded-xl text-sm font-bold text-white ${arch.color}`}>
-                      {arch.icon.slice(0, 2).toUpperCase()}
+                      <Icon className={iconClassName} />
                     </div>
                     <div className="pr-24">
                       <div className="text-base font-semibold text-textBright">{arch.name}</div>
