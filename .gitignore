@@ -1,0 +1,17 @@
+.vercel
+node_modules
+.next
+test-results
+playwright-report
+coverage
+*.log
+*.zip
+*.docx
+.env
+.env.local
+tsconfig.tsbuildinfo
+tmpclaude-*-cwd
+_compiled_zip
+_deploy_docx
+_enhanced_zip
+{src,tests,docs}
