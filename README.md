@@ -1,6 +1,6 @@
-# Dividend Freedom Pro
+# IncomeTrackerOS
 
-Production-grade Next.js 14 dividend income projection app.
+Dividend Freedom Pro is a production-grade Next.js 14 dividend income projection app.
 
 ## Local development
 
@@ -15,10 +15,10 @@ npm run dev
 npm run verify
 ```
 
-- `npm test` runs the 93-engine-test suite.
+- `npm test` runs the test suite.
 - `npm run typecheck` validates TypeScript.
 
-## Deploy to Vercel (no GitHub required)
+## Deploy to Vercel
 
 See: `docs/DEPLOY_VERCEL.md`
 
