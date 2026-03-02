@@ -302,6 +302,8 @@ export const TYPE_CATEGORY_MAP: Record<string, string[]> = {
   "Roundhill Thematic": ["Roundhill Thematic"],
 };
 
+export const BASE_TEMPLATES = PORTFOLIO_TEMPLATES;
+
 export const PORTFOLIO_ARCHETYPES: ArchetypeDefinition[] = [
   {
     key: "pure-growth",

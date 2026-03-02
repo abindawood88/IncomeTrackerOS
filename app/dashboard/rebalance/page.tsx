@@ -5,6 +5,7 @@ import { useDFPStore } from "@/lib/store";
 import { useDerivedMetrics } from "@/lib/use-derived-metrics";
 import { rebalanceToTemplate } from "@/lib/rebalance";
 import { formatDollars } from "@/lib/utils";
+import { BASE_TEMPLATES } from "@/lib/etf-db";
 
 export default function RebalancePage() {
   const allocs = useDFPStore((s) => s.allocs);
@@ -20,7 +21,7 @@ export default function RebalancePage() {
             ticker: alloc.ticker,
             weight: alloc.w > 1 ? alloc.w / 100 : alloc.w,
           }))
-        : [],
+        : (BASE_TEMPLATES.find((template) => template.id === targetKey)?.holdings ?? []),
     [allocs, targetKey],
   );
 
@@ -62,6 +63,11 @@ export default function RebalancePage() {
               className="mt-1 w-full rounded-lg border border-border bg-bg-1 px-3 py-2 text-textBright"
             >
               <option value="current">Current Allocation</option>
+              {BASE_TEMPLATES.map((template) => (
+                <option key={template.id} value={template.id}>
+                  {template.name}
+                </option>
+              ))}
             </select>
           </label>
           <label className="flex items-center gap-2 rounded-lg border border-border bg-bg-1 px-3 py-2 text-sm text-textDim">
