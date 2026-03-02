@@ -24,15 +24,16 @@ function SortableExpenseRow({
   row: CoverageRow;
   isEditing: boolean;
   onEdit: () => void;
-  onSave: (label: string, amount: number) => void;
+  onSave: (name: string, amountMonthly: number, enabledForGoal: boolean) => void;
   onCancel: () => void;
   onDelete: () => void;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition } = useSortable({
     id: row.goal.id,
   });
-  const [draftLabel, setDraftLabel] = useState(row.goal.label);
-  const [draftAmount, setDraftAmount] = useState(row.goal.amount);
+  const [draftName, setDraftName] = useState(row.goal.name);
+  const [draftAmountMonthly, setDraftAmountMonthly] = useState(row.goal.amountMonthly);
+  const [draftEnabledForGoal, setDraftEnabledForGoal] = useState(row.goal.enabledForGoal);
 
   const badgeTone =
     row.pct === 100 ? "text-teal-light" : row.pct > 0 ? "text-gold-light" : "text-danger";
@@ -59,23 +60,31 @@ function SortableExpenseRow({
             <div className="grid gap-2">
               <input
                 type="text"
-                value={draftLabel}
-                onChange={(e) => setDraftLabel(e.target.value)}
+                value={draftName}
+                onChange={(e) => setDraftName(e.target.value)}
                 className="rounded-lg border border-border bg-bg-2 px-3 py-2 text-sm text-textBright"
               />
               <input
                 type="number"
                 min={0}
-                value={draftAmount}
-                onChange={(e) => setDraftAmount(Math.max(0, Number(e.target.value) || 0))}
+                value={draftAmountMonthly}
+                onChange={(e) => setDraftAmountMonthly(Math.max(0, Number(e.target.value) || 0))}
                 className="rounded-lg border border-border bg-bg-2 px-3 py-2 text-sm text-textBright"
               />
+              <label className="flex items-center gap-2 text-xs text-textDim">
+                <input
+                  type="checkbox"
+                  checked={draftEnabledForGoal}
+                  onChange={(e) => setDraftEnabledForGoal(e.target.checked)}
+                />
+                Include in expenses-based goal
+              </label>
             </div>
           ) : (
             <div className="flex items-center justify-between gap-2">
               <div className="min-w-0">
-                <div className="truncate font-semibold text-textBright">{row.goal.label}</div>
-                <div className="text-xs text-textDim">${Math.round(row.goal.amount).toLocaleString()} / month</div>
+                <div className="truncate font-semibold text-textBright">{row.goal.name}</div>
+                <div className="text-xs text-textDim">${Math.round(row.goal.amountMonthly).toLocaleString()} / month {row.goal.enabledForGoal ? "" : "• excluded"}</div>
               </div>
               <div className={`rounded-full px-2 py-1 text-xs font-semibold ${badgeTone}`}>
                 {row.pct}%
@@ -95,7 +104,7 @@ function SortableExpenseRow({
                 <>
                   <button
                     type="button"
-                    onClick={() => onSave(draftLabel, draftAmount)}
+                    onClick={() => onSave(draftName, draftAmountMonthly, draftEnabledForGoal)}
                     className="rounded-lg border border-border px-2 py-1 text-textBright"
                   >
                     Save
@@ -137,6 +146,8 @@ function SortableExpenseRow({
 export default function DashboardOverviewPage() {
   const metrics = useDerivedMetrics();
   const strategy = useDFPStore((s) => s.goal.strategy);
+  const goal = useDFPStore((s) => s.goal);
+  const setGoal = useDFPStore((s) => s.setGoal);
   const years = useDFPStore((s) => s.goal.years);
   const expenseGoals = useDFPStore((s) => s.expenseGoals);
   const addExpenseGoal = useDFPStore((s) => s.addExpenseGoal);
@@ -165,8 +176,8 @@ export default function DashboardOverviewPage() {
     if (coverageRows.length === 0) return metrics.milestones;
     return coverageRows.slice(0, 4).map((row, index) => ({
       id: row.goal.id,
-      label: row.goal.label || `Expense ${index + 1}`,
-      target: row.goal.amount,
+      label: row.goal.name || `Expense ${index + 1}`,
+      target: row.goal.amountMonthly,
       icon: index === 0 ? "🚗" : index === 1 ? "🏠" : index === 2 ? "📱" : "💳",
       pct: row.pct,
       reached: row.fullyMet,
@@ -209,7 +220,7 @@ export default function DashboardOverviewPage() {
         <div className="lg:col-span-2">
           <ProjectionChart
             projData={metrics.projData}
-            target={useDFPStore.getState().goal.targetIncome}
+            target={metrics.targetMonthly}
             color="#00d4be"
           />
         </div>
@@ -231,6 +242,59 @@ export default function DashboardOverviewPage() {
               >
                 + Add Expense
               </button>
+            </div>
+
+            <div className="mt-3 grid gap-2 rounded-xl border border-border bg-bg-1 p-3 text-sm">
+              <label className="text-textDim">
+                Goal mode
+                <select
+                  value={goal.goalMode}
+                  onChange={(e) => setGoal({ goalMode: e.target.value as "manual" | "expenses" })}
+                  className="mt-1 w-full rounded-lg border border-border bg-bg-2 px-3 py-2 text-textBright"
+                >
+                  <option value="manual">Manual target income</option>
+                  <option value="expenses">Expenses coverage target</option>
+                </select>
+              </label>
+              {goal.goalMode === "expenses" ? (
+                <div className="grid gap-2 md:grid-cols-2">
+                  <label className="text-textDim">
+                    Coverage %
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={goal.coveragePct}
+                      onChange={(e) => setGoal({ coveragePct: Number(e.target.value) })}
+                      className="mt-1 w-full rounded-lg border border-border bg-bg-2 px-3 py-2 text-textBright"
+                    />
+                  </label>
+                  <div className="space-y-2">
+                    <label className="flex items-center gap-2 text-textDim">
+                      <input
+                        type="checkbox"
+                        checked={goal.taxEnabled}
+                        onChange={(e) => setGoal({ taxEnabled: e.target.checked })}
+                      />
+                      Gross-up for taxes
+                    </label>
+                    {goal.taxEnabled ? (
+                      <label className="text-textDim">
+                        Tax rate %
+                        <input
+                          type="number"
+                          min={0}
+                          max={100}
+                          value={goal.taxRate}
+                          onChange={(e) => setGoal({ taxRate: Number(e.target.value) })}
+                          className="mt-1 w-full rounded-lg border border-border bg-bg-2 px-3 py-2 text-textBright"
+                        />
+                      </label>
+                    ) : null}
+                  </div>
+                </div>
+              ) : null}
+              <div className="text-xs text-textDim">Effective target: ${Math.round(metrics.targetMonthly).toLocaleString()} / month</div>
             </div>
 
             {showAdd ? (
@@ -287,12 +351,12 @@ export default function DashboardOverviewPage() {
                         isEditing={editingId === row.goal.id}
                         onEdit={() => setEditingId(row.goal.id)}
                         onCancel={() => setEditingId(null)}
-                        onSave={(label, amount) => {
-                          updateExpenseGoal(row.goal.id, { label, amount });
+                        onSave={(label, amount, enabledForGoal) => {
+                          updateExpenseGoal(row.goal.id, { name: label, amountMonthly: amount, enabledForGoal });
                           setEditingId(null);
                         }}
                         onDelete={() => {
-                          const ok = window.confirm(`Remove "${row.goal.label}" from expense coverage?`);
+                          const ok = window.confirm(`Remove "${row.goal.name}" from expense coverage?`);
                           if (!ok) return;
                           removeExpenseGoal(row.goal.id);
                         }}

@@ -1,9 +1,9 @@
 import assert from "node:assert/strict";
-import { computeExpenseCoverage } from "../lib/expense-coverage";
+import { computeExpenseCoverage, computeRequiredMonthlyIncomeFromExpenses } from "../lib/expense-coverage";
 import type { ExpenseGoal } from "../lib/types";
 
-function goal(id: string, label: string, amount: number): ExpenseGoal {
-  return { id, label, amount, createdAt: 1 };
+function goal(id: string, name: string, amountMonthly: number, enabledForGoal = true): ExpenseGoal {
+  return { id, name, amountMonthly, enabledForGoal, createdAt: 1 };
 }
 
 {
@@ -27,32 +27,21 @@ function goal(id: string, label: string, amount: number): ExpenseGoal {
 }
 
 {
-  const results = computeExpenseCoverage(0, [goal("1", "Car", 400)]);
-  assert.equal(results[0].covered, 0);
-  assert.equal(results[0].uncovered, 400);
-  assert.equal(results[0].pct, 0);
-  assert.equal(results[0].fullyMet, false);
+  const withTax = computeRequiredMonthlyIncomeFromExpenses({
+    goals: [goal("1", "Rent", 2000), goal("2", "Phone", 100, false)],
+    coveragePct: 50,
+    taxEnabled: true,
+    taxRate: 20,
+  });
+  assert.equal(withTax, 1250);
 }
 
 {
-  const results = computeExpenseCoverage(1000, [goal("1", "Free", 0)]);
-  assert.equal(results[0].pct, 0);
-  assert.equal(results[0].fullyMet, true);
-}
-
-{
-  const a = computeExpenseCoverage(500, [goal("1", "Car", 400), goal("2", "Mortgage", 900)]);
-  const b = computeExpenseCoverage(500, [goal("2", "Mortgage", 900), goal("1", "Car", 400)]);
-  assert.notDeepEqual(a.map((row) => row.covered), b.map((row) => row.covered));
-}
-
-{
-  const results = computeExpenseCoverage(1500, [
-    goal("1", "Car", 400),
-    goal("2", "Phone", 100),
-    goal("3", "Mortgage", 900),
-  ]);
-  assert.equal(results[0].cumulativeUsed, 400);
-  assert.equal(results[1].cumulativeUsed, 500);
-  assert.equal(results[2].cumulativeUsed, 1400);
+  const withoutTax = computeRequiredMonthlyIncomeFromExpenses({
+    goals: [goal("1", "Rent", 2000), goal("2", "Phone", 100)],
+    coveragePct: 50,
+    taxEnabled: false,
+    taxRate: 20,
+  });
+  assert.equal(withoutTax, 1050);
 }

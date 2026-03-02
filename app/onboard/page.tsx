@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState, type ComponentType } from "react";
 import { buildHoldingSeeds, normalizeAllocations } from "@/lib/apply-portfolio";
 import { ETF_DB, PORTFOLIO_ARCHETYPES, PORTFOLIO_TEMPLATES } from "@/lib/etf-db";
 import { useHydrated } from "@/lib/use-hydrated";
+import { effectiveTargetMonthly } from "@/lib/use-derived-metrics";
 import {
   buildRecommendations,
   buildReviewUniverse,
@@ -63,6 +64,7 @@ export default function OnboardPage() {
   const router = useRouter();
   const goal = useDFPStore((s) => s.goal);
   const onboarding = useDFPStore((s) => s.onboarding);
+  const expenseGoals = useDFPStore((s) => s.expenseGoals);
   const setGoal = useDFPStore((s) => s.setGoal);
   const addHolding = useDFPStore((s) => s.addHolding);
   const resetPortfolio = useDFPStore((s) => s.resetPortfolio);
@@ -89,12 +91,25 @@ export default function OnboardPage() {
     }
   }, [onboarding.currentStep, selectedTemplate, setOnboardingStep]);
 
+  const targetMonthly = useMemo(
+    () =>
+      effectiveTargetMonthly({
+        goalMode: goal.goalMode,
+        manualTargetMonthly: goal.targetIncome,
+        expenses: expenseGoals,
+        coveragePct: goal.coveragePct,
+        taxEnabled: goal.taxEnabled,
+        taxRate: goal.taxRate,
+      }),
+    [goal.goalMode, goal.targetIncome, goal.coveragePct, goal.taxEnabled, goal.taxRate, expenseGoals],
+  );
+
   const recommendationResult = useMemo<RecommendationResult>(
     () =>
       buildRecommendations({
         strategy: goal.strategy,
         risk: goal.riskTolerance,
-        targetMonthly: goal.targetPeriod === "yearly" ? goal.targetIncome * 12 : goal.targetIncome,
+        targetMonthly,
         capital: goal.capital,
         hasSetCapital: Boolean(goal.hasSetCapital),
         targetPeriod: goal.targetPeriod,
@@ -104,7 +119,7 @@ export default function OnboardPage() {
     [
       goal.strategy,
       goal.riskTolerance,
-      goal.targetIncome,
+      targetMonthly,
       goal.capital,
       goal.hasSetCapital,
       goal.targetPeriod,
@@ -122,7 +137,7 @@ export default function OnboardPage() {
       buildReviewUniverse({
         strategy: goal.strategy,
         risk: goal.riskTolerance,
-        targetMonthly: goal.targetPeriod === "yearly" ? goal.targetIncome * 12 : goal.targetIncome,
+        targetMonthly,
         capital: goal.capital,
         targetPeriod: goal.targetPeriod,
         preferredTypes: goal.preferredTypes,
@@ -130,7 +145,7 @@ export default function OnboardPage() {
     [
       goal.strategy,
       goal.riskTolerance,
-      goal.targetIncome,
+      targetMonthly,
       goal.capital,
       goal.targetPeriod,
       goal.preferredTypes,

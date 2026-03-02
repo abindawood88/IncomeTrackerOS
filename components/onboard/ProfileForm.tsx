@@ -15,11 +15,23 @@ export default function ProfileForm({
   return (
     <div className="grid gap-3 rounded-2xl border border-border bg-bg-2 p-4 md:grid-cols-2">
       <label className="text-sm text-textDim">
+        Goal mode
+        <select
+          value={goal.goalMode}
+          onChange={(e) => onChange({ goalMode: e.target.value as UserGoal["goalMode"] })}
+          className="mt-1 w-full rounded-lg border border-border bg-bg-1 px-3 py-2 text-textBright"
+        >
+          <option value="manual">Manual target income</option>
+          <option value="expenses">Expenses coverage</option>
+        </select>
+      </label>
+      <label className="text-sm text-textDim">
         Target income
         <input
           data-testid="target-income"
           type="number"
           value={targetDisplay}
+          disabled={goal.goalMode === "expenses"}
           onChange={(e) => {
             const raw = Number(e.target.value);
             const monthly = goal.targetPeriod === "yearly" ? raw / 12 : raw;
@@ -29,6 +41,7 @@ export default function ProfileForm({
         />
         <select
           value={goal.targetPeriod}
+          disabled={goal.goalMode === "expenses"}
           onChange={(e) => onChange({ targetPeriod: e.target.value as UserGoal["targetPeriod"] })}
           className="mt-2 w-full rounded-lg border border-border bg-bg-1 px-3 py-2 text-textBright"
         >
@@ -36,6 +49,19 @@ export default function ProfileForm({
           <option value="yearly">Yearly</option>
         </select>
       </label>
+      {goal.goalMode === "expenses" ? (
+        <label className="text-sm text-textDim">
+          Expense coverage %
+          <input
+            type="number"
+            min={0}
+            max={100}
+            value={goal.coveragePct}
+            onChange={(e) => onChange({ coveragePct: Number(e.target.value) })}
+            className="mt-1 w-full rounded-lg border border-border bg-bg-1 px-3 py-2 text-textBright"
+          />
+        </label>
+      ) : null}
       <label className="text-sm text-textDim">
         Capital
         <input

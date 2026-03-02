@@ -10,6 +10,7 @@ export type Strategy      = "income"   | "growth" | "hyper";
 export type FetchStatus   = "idle"     | "loading" | "ok" | "error";
 export type RiskTolerance = "low" | "medium" | "high";
 export type TargetPeriod = "monthly" | "yearly";
+export type GoalMode = "manual" | "expenses";
 export type PortfolioType =
   | "Core Dividend"
   | "Covered Call"
@@ -181,8 +182,9 @@ export interface CacheEntry<T = unknown> {
 
 export interface ExpenseGoal {
   id: string;
-  label: string;
-  amount: number;
+  name: string;
+  amountMonthly: number;
+  enabledForGoal: boolean;
   createdAt: number;
 }
 
@@ -243,6 +245,8 @@ export interface ArchetypeDefinition {
 // ── User goal ─────────────────────────────────────────────────────────────────
 export interface UserGoal {
   targetIncome: number;
+  goalMode: GoalMode;
+  coveragePct: number; // percent 0-100
   capital:      number;
   hasSetCapital?: boolean;
   monthly:      number;

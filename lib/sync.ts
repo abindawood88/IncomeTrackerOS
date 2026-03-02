@@ -21,7 +21,7 @@ export function useSync(): void {
         client.from("user_goals").select("payload").eq("user_id", userId).maybeSingle(),
         client.from("holdings").select("ticker,shares,avg_cost,cagr_ovr").eq("user_id", userId),
         client.from("allocations").select("ticker,weight").eq("user_id", userId),
-        client.from("expense_goals").select("id,label,amount,created_at").eq("user_id", userId),
+        client.from("expense_goals").select("id,name,amount_monthly,enabled_for_goal,created_at").eq("user_id", userId),
       ]);
 
       if (goalRes.data?.payload) {
@@ -54,8 +54,9 @@ export function useSync(): void {
         useDFPStore.setState({
           expenseGoals: expenseRes.data.map((row) => ({
             id: row.id,
-            label: row.label,
-            amount: Number(row.amount ?? 0),
+            name: row.name,
+            amountMonthly: Number(row.amount_monthly ?? 0),
+            enabledForGoal: Boolean(row.enabled_for_goal ?? true),
             createdAt: Number(row.created_at ?? Date.now()),
           })),
         });
@@ -109,8 +110,9 @@ export function useSync(): void {
                 state.expenseGoals.map((goal) => ({
                   user_id: userId,
                   id: goal.id,
-                  label: goal.label,
-                  amount: goal.amount,
+                  name: goal.name,
+                  amount_monthly: goal.amountMonthly,
+                  enabled_for_goal: goal.enabledForGoal,
                   created_at: goal.createdAt,
                 })),
               )

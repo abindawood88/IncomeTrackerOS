@@ -15,6 +15,8 @@ import { ETF_DB } from "./etf-db";
 import { useDFPStore } from "./store";
 import type { DataSource, EnrichedHolding, LiveData, RawHolding } from "./types";
 import { clamp, normalizeTicker } from "./utils";
+import { computeRequiredMonthlyIncomeFromExpenses } from "./expense-coverage";
+import type { ExpenseGoal, GoalMode } from "./types";
 
 export function enrichHoldings(
   holdings: RawHolding[],
@@ -54,8 +56,28 @@ export function enrichHoldings(
   });
 }
 
+
+export function effectiveTargetMonthly(args: {
+  goalMode: GoalMode;
+  manualTargetMonthly: number;
+  expenses: ExpenseGoal[];
+  coveragePct: number;
+  taxEnabled: boolean;
+  taxRate: number;
+}): number {
+  if (args.goalMode !== "expenses") return args.manualTargetMonthly;
+  return computeRequiredMonthlyIncomeFromExpenses({
+    goals: args.expenses,
+    coveragePct: args.coveragePct,
+    taxEnabled: args.taxEnabled,
+    taxRate: args.taxRate,
+  });
+}
+
 export function useDerivedMetrics() {
   const targetIncome = useDFPStore((state) => state.goal.targetIncome);
+  const goalMode = useDFPStore((state) => state.goal.goalMode);
+  const coveragePct = useDFPStore((state) => state.goal.coveragePct);
   const capital = useDFPStore((state) => state.goal.capital);
   const monthly = useDFPStore((state) => state.goal.monthly);
   const drip = useDFPStore((state) => state.goal.drip);
@@ -64,6 +86,7 @@ export function useDerivedMetrics() {
   const taxRate = useDFPStore((state) => state.goal.taxRate);
   const holdings = useDFPStore((state) => state.holdings);
   const crash = useDFPStore((state) => state.crash);
+  const expenseGoals = useDFPStore((state) => state.expenseGoals);
   const pause = useDFPStore((state) => state.pause);
   const { get: getLiveData } = useLiveCache();
 
@@ -71,6 +94,14 @@ export function useDerivedMetrics() {
     const taxRatePct = clamp(taxRate ?? 0, 0, 100);
     const taxMultiplier = taxEnabled ? 1 - taxRatePct / 100 : 1;
     const enriched = enrichHoldings(holdings, getLiveData);
+    const targetMonthly = effectiveTargetMonthly({
+      goalMode,
+      manualTargetMonthly: targetIncome,
+      expenses: expenseGoals,
+      coveragePct,
+      taxEnabled,
+      taxRate,
+    });
     const grossMetrics = blendedMetrics(enriched);
     const netYield = grossMetrics.bYield * taxMultiplier;
     const netMonthlyIncome = Math.round(grossMetrics.monthlyIncome * taxMultiplier);
@@ -85,14 +116,14 @@ export function useDerivedMetrics() {
       crash,
       pause,
     });
-    const freedomYr = findFreedomYear(projData, targetIncome);
-    const coverageBase = targetIncome > 0 ? netMonthlyIncome / targetIncome : 0;
+    const freedomYr = findFreedomYear(projData, targetMonthly);
+    const coverageBase = targetMonthly > 0 ? netMonthlyIncome / targetMonthly : 0;
     const coverage = Math.min(Math.round(coverageBase * 100), 100);
     const paydayData = buildPaydayCalendar(enriched).map((w) => ({
       ...w,
       amount: Math.round(w.amount * taxMultiplier),
     }));
-    const milestones = milestonesProgress(netMonthlyIncome, targetIncome);
+    const milestones = milestonesProgress(netMonthlyIncome, targetMonthly);
 
     return {
       enriched,
@@ -104,6 +135,7 @@ export function useDerivedMetrics() {
       taxRatePct,
       taxEnabled,
       score,
+      targetMonthly,
       projData,
       freedomYr,
       coverage,
@@ -112,6 +144,8 @@ export function useDerivedMetrics() {
     };
   }, [
     targetIncome,
+    goalMode,
+    coveragePct,
     capital,
     monthly,
     drip,
@@ -121,6 +155,7 @@ export function useDerivedMetrics() {
     holdings,
     crash,
     pause,
+    expenseGoals,
     getLiveData,
   ]);
 }

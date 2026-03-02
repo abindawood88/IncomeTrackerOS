@@ -16,6 +16,8 @@ function resetStore(): void {
       targetPeriod: "monthly",
       taxEnabled: true,
       taxRate: 30,
+      goalMode: "manual",
+      coveragePct: 100,
       preferredTypes: ["Core Dividend", "Option Income"],
     },
     holdings: [],
@@ -72,3 +74,8 @@ assert.equal(useDFPStore.getState().holdings[0].shares, 0);
 resetStore();
 useDFPStore.getState().addHolding({ ticker: "schd", shares: 10, avgCost: 80, cagrOvr: null });
 assert.equal(useDFPStore.getState().holdings[0].ticker, "SCHD");
+
+{
+  const patch = sanitizeGoalPatch({ coveragePct: 150 });
+  assert.equal(patch.coveragePct, 100);
+}

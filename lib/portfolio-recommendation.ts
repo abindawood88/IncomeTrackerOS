@@ -12,6 +12,7 @@ export type RecommendationResult = {
   capitalWarning: boolean;
   noCapitalSet: boolean;
   message: string | null;
+  warnings: string[];
 };
 
 export type TemplateComparisonRow = {
@@ -176,6 +177,12 @@ export function makeClosedEndIncomeTemplate(): PortfolioTemplate {
   };
 }
 
+const HYPER_LEVERAGED_MAX = 0.2;
+
+function canIncludeLeveraged(strategy: Strategy, risk: RiskTolerance): boolean {
+  return strategy === "hyper" && risk === "high";
+}
+
 export function makeTypeFocusedTemplate(
   preferredTypes: PortfolioType[],
   strategy: Strategy,
@@ -187,11 +194,13 @@ export function makeTypeFocusedTemplate(
   if (!preferredTypes.length) return null;
 
   const desiredYield = desiredYieldForGoal(strategy, targetMonthly, capital, targetPeriod).desiredYield;
+  const includeLeveraged = canIncludeLeveraged(strategy, risk);
   const allCandidates = Object.values(ETF_DB)
     .filter(
       (etf) =>
         etf.source !== "stub" &&
-        preferredTypes.some((type) => typeMatchesTicker(type, etf.ticker)),
+        preferredTypes.some((type) => typeMatchesTicker(type, etf.ticker)) &&
+        (includeLeveraged || !etf.leveraged),
     );
   const ranked = rankETFs(allCandidates, {
     targetYield: desiredYield,
@@ -235,7 +244,23 @@ export function makeTypeFocusedTemplate(
     weight: weightBase[idx] ?? 0.1,
   }));
   const totalWeight = holdings.reduce((sum, h) => sum + h.weight, 0);
-  const normalized = holdings.map((h) => ({ ...h, weight: h.weight / totalWeight }));
+  let normalized = holdings.map((h) => ({ ...h, weight: h.weight / totalWeight }));
+
+  if (includeLeveraged) {
+    const leveragedWeight = normalized.reduce(
+      (sum, h) => sum + ((ETF_DB[h.ticker]?.leveraged || typeMatchesTicker("Leveraged", h.ticker)) ? h.weight : 0),
+      0,
+    );
+    if (leveragedWeight > HYPER_LEVERAGED_MAX) {
+      const scaleLeveraged = HYPER_LEVERAGED_MAX / leveragedWeight;
+      const nonLeveragedWeight = 1 - leveragedWeight;
+      const scaleNonLeveraged = nonLeveragedWeight > 0 ? (1 - HYPER_LEVERAGED_MAX) / nonLeveragedWeight : 1;
+      normalized = normalized.map((h) => {
+        const isLeveraged = ETF_DB[h.ticker]?.leveraged || typeMatchesTicker("Leveraged", h.ticker);
+        return { ...h, weight: h.weight * (isLeveraged ? scaleLeveraged : scaleNonLeveraged) };
+      });
+    }
+  }
 
   const label = preferredTypes.length === 1 ? preferredTypes[0] : "Custom Type Mix";
 
@@ -289,11 +314,13 @@ export function buildRecommendations(args: {
       capitalWarning: false,
       noCapitalSet: true,
       message: "Set your starting capital to receive personalized portfolio recommendations.",
+      warnings: [],
     };
   }
 
   const yieldGoal = desiredYieldForGoal(strategy, targetMonthly, capital, targetPeriod);
   let message: string | null = null;
+  const warnings: string[] = [];
   if (yieldGoal.capped) {
     message = `Your income target requires ~${(yieldGoal.rawYield * 100).toFixed(0)}% yield. We've shown the highest available options, but this goal may not be achievable at your current capital level.`;
   }
@@ -320,6 +347,7 @@ export function buildRecommendations(args: {
   }
   if (strategy === "hyper" && risk === "high") {
     templates.unshift(makeHyperHighRiskTemplate());
+    warnings.push("Includes leveraged ETFs (higher volatility/decay risk).");
   }
 
   const coverageThreshold = preferredTypes.length > 0 ? 0.5 : 0.2;
@@ -342,6 +370,7 @@ export function buildRecommendations(args: {
       capitalWarning: false,
       noCapitalSet: false,
       message,
+      warnings,
     };
   }
 
@@ -351,6 +380,7 @@ export function buildRecommendations(args: {
     capitalWarning: true,
     noCapitalSet: false,
     message,
+    warnings,
   };
 }
 
@@ -365,8 +395,10 @@ export function buildReviewUniverse(args: {
   const { strategy, risk, targetMonthly, capital, targetPeriod, preferredTypes } = args;
   const desiredYield = desiredYieldForGoal(strategy, targetMonthly, capital, targetPeriod).desiredYield;
 
+  const includeLeveraged = canIncludeLeveraged(strategy, risk);
   const pool = Object.values(ETF_DB).filter((etf) =>
     etf.source !== "stub" &&
+    (includeLeveraged || !etf.leveraged) &&
     (preferredTypes.length === 0
       ? true
       : preferredTypes.some((type) => typeMatchesTicker(type, etf.ticker))),
