@@ -1,7 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { ETF_DB } from "@/lib/etf-db";
-
-type PayFrequency = "weekly" | "monthly" | "quarterly" | "annual";
+import { checkRateLimit } from "@/lib/rate-limit";
+import {
+  extractTickerDataFromHtml,
+  type PayFrequency,
+  sanitizeTicker,
+} from "@/lib/fetch-ticker";
 
 type LiveResult = {
   ticker: string;
@@ -14,17 +18,14 @@ type LiveResult = {
   error?: string;
 };
 
-type RateBucket = {
-  count: number;
-  resetAt: number;
-};
-
 const RATE_LIMIT = {
-  maxRequests: 10,
+  limit: 10,
   windowMs: 60_000,
+  prefix: "fetch-ticker",
 };
 
-const rateBuckets = new Map<string, RateBucket>();
+const FETCH_TIMEOUT_MS = 6_000;
+const MAX_ATTEMPTS = 2;
 
 export const runtime = "nodejs";
 
@@ -39,120 +40,102 @@ function clientIp(req: NextRequest): string {
   return "unknown";
 }
 
-function checkRateLimit(ip: string): boolean {
-  const now = Date.now();
-  const bucket = rateBuckets.get(ip);
+async function fetchWithTimeout(input: string, init: RequestInit, timeoutMs: number): Promise<Response> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), timeoutMs);
 
-  if (!bucket || now >= bucket.resetAt) {
-    rateBuckets.set(ip, { count: 1, resetAt: now + RATE_LIMIT.windowMs });
-    return true;
+  try {
+    return await fetch(input, {
+      ...init,
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeout);
   }
-
-  if (bucket.count >= RATE_LIMIT.maxRequests) {
-    return false;
-  }
-
-  bucket.count += 1;
-  rateBuckets.set(ip, bucket);
-  return true;
 }
 
-function sanitizeTicker(raw: string): string | null {
-  const ticker = raw.trim().toUpperCase();
-  if (!/^[A-Z0-9]{1,6}$/.test(ticker)) return null;
-  return ticker;
-}
-
-function parsePercentString(value: string | null): number | null {
-  if (!value) return null;
-  const n = Number(value.replace("%", "").trim());
-  if (!Number.isFinite(n)) return null;
-  return n / 100;
-}
-
-function mapPayoutFrequency(raw: string | null): PayFrequency {
-  if (!raw) return "quarterly";
-  const v = raw.toLowerCase();
-  if (v.includes("week")) return "weekly";
-  if (v.includes("month")) return "monthly";
-  if (v.includes("annual") || v.includes("year")) return "annual";
-  return "quarterly";
-}
-
-function unescapeHtml(text: string): string {
-  return text
-    .replace(/&amp;/g, "&")
-    .replace(/&quot;/g, "\"")
-    .replace(/&#39;/g, "'")
-    .replace(/&lt;/g, "<")
-    .replace(/&gt;/g, ">");
+function shouldRetry(status: number): boolean {
+  return status === 408 || status === 425 || status === 429 || (status >= 500 && status <= 599);
 }
 
 async function fetchViaStockAnalysis(ticker: string): Promise<LiveResult | null> {
   const url = `https://stockanalysis.com/etf/${ticker.toLowerCase()}/`;
-  const res = await fetch(url, {
-    cache: "no-store",
-    headers: {
-      "user-agent": "Mozilla/5.0",
-      accept: "text/html,application/xhtml+xml",
-    },
-  });
-  if (!res.ok) return null;
 
-  const html = await res.text();
-  const quoteMatch = html.match(/quote:\{[^}]*\bc:([0-9]+(?:\.[0-9]+)?)/);
-  const fallbackQuoteMatch = html.match(/quote:\{[^}]*\bp:([0-9]+(?:\.[0-9]+)?)/);
-  const price = quoteMatch ? Number(quoteMatch[1]) : fallbackQuoteMatch ? Number(fallbackQuoteMatch[1]) : null;
-  if (!price || price <= 0) return null;
+  for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
+    try {
+      const res = await fetchWithTimeout(
+        url,
+        {
+          cache: "no-store",
+          headers: {
+            "user-agent": "Mozilla/5.0",
+            accept: "text/html,application/xhtml+xml",
+          },
+        },
+        FETCH_TIMEOUT_MS,
+      );
 
-  const db = ETF_DB[ticker];
-  const yieldMatch = html.match(/dividendYield:"([0-9.]+)%"/);
-  const yld = parsePercentString(yieldMatch?.[1] ?? null) ?? db?.yield ?? 0;
-  const cagr = db?.cagr ?? 0;
-  const freqMatch = html.match(/payoutFrequency:"([^"]+)"/);
-  const payFreq = mapPayoutFrequency(freqMatch?.[1] ?? null) ?? db?.payFreq ?? "quarterly";
-  const nameMatch = html.match(/"@type":"InvestmentFund","name":"([^"]+)"/);
-  const name = (nameMatch ? unescapeHtml(nameMatch[1]) : db?.name) ?? ticker;
+      if (!res.ok) {
+        if (attempt < MAX_ATTEMPTS && shouldRetry(res.status)) {
+          continue;
+        }
+        return null;
+      }
 
-  return {
-    ticker,
-    name,
-    price,
-    yield: yld,
-    cagr,
-    payFreq,
-    source: "live",
-  };
+      const html = await res.text();
+      const db = ETF_DB[ticker];
+      const extracted = extractTickerDataFromHtml(html, ticker, db);
+      if (!extracted) return null;
+
+      return {
+        ticker,
+        ...extracted,
+        source: "live",
+      };
+    } catch {
+      if (attempt >= MAX_ATTEMPTS) {
+        return null;
+      }
+    }
+  }
+
+  return null;
 }
 
 async function fetchTickerResult(ticker: string): Promise<LiveResult> {
-  try {
-    const fromStockAnalysis = await fetchViaStockAnalysis(ticker);
-    if (fromStockAnalysis) return fromStockAnalysis;
+  const fromStockAnalysis = await fetchViaStockAnalysis(ticker);
+  if (fromStockAnalysis) return fromStockAnalysis;
 
-    const db = ETF_DB[ticker];
-    if (db) {
-      return {
-        ticker,
-        name: db.name,
-        price: db.price,
-        yield: db.yield,
-        cagr: db.cagr ?? 0,
-        payFreq: db.payFreq,
-        source: "live",
-      };
-    }
-
-    return { ticker, name: ticker, price: 0, yield: 0, cagr: 0, payFreq: "quarterly", source: "error", error: "All sources failed" };
-  } catch {
-    return { ticker, name: ticker, price: 0, yield: 0, cagr: 0, payFreq: "quarterly", source: "error", error: "All sources failed" };
+  const db = ETF_DB[ticker];
+  if (db) {
+    return {
+      ticker,
+      name: db.name,
+      price: db.price,
+      yield: db.yield,
+      cagr: db.cagr ?? 0,
+      payFreq: db.payFreq,
+      source: "live",
+    };
   }
+
+  return {
+    ticker,
+    name: ticker,
+    price: 0,
+    yield: 0,
+    cagr: 0,
+    payFreq: "quarterly",
+    source: "error",
+    error: "All sources failed",
+  };
 }
 
 export async function POST(req: NextRequest) {
   const ip = clientIp(req);
-  if (!checkRateLimit(ip)) {
-    return NextResponse.json({ error: "Rate limit exceeded" }, { status: 429 });
+  const limit = await checkRateLimit(ip, RATE_LIMIT);
+  if (!limit.allowed) {
+    return NextResponse.json({ error: "Rate limit exceeded", resetAt: limit.resetAt }, { status: 429 });
   }
 
   let body: unknown;
@@ -184,14 +167,18 @@ export async function POST(req: NextRequest) {
     normalizedTickers.push(sanitized);
   }
 
-  const settled = await Promise.allSettled(
-    normalizedTickers.map((ticker) => fetchTickerResult(ticker)),
-  );
+  const uniqueTickers = [...new Set(normalizedTickers)];
+  const settled = await Promise.allSettled(uniqueTickers.map((ticker) => fetchTickerResult(ticker)));
 
-  const results = settled.map((item, index): LiveResult => {
-    const ticker = normalizedTickers[index];
-    if (item.status === "fulfilled") return item.value;
-    return {
+  const uniqueResults = new Map<string, LiveResult>();
+  settled.forEach((item, index) => {
+    const ticker = uniqueTickers[index];
+    if (item.status === "fulfilled") {
+      uniqueResults.set(ticker, item.value);
+      return;
+    }
+
+    uniqueResults.set(ticker, {
       ticker,
       name: ticker,
       price: 0,
@@ -200,7 +187,23 @@ export async function POST(req: NextRequest) {
       payFreq: "quarterly",
       source: "error",
       error: "All sources failed",
-    };
+    });
+  });
+
+  const results = normalizedTickers.map((ticker) => {
+    const result = uniqueResults.get(ticker);
+    return (
+      result ?? {
+        ticker,
+        name: ticker,
+        price: 0,
+        yield: 0,
+        cagr: 0,
+        payFreq: "quarterly",
+        source: "error",
+        error: "All sources failed",
+      }
+    );
   });
 
   return NextResponse.json({ results });
