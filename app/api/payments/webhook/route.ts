@@ -4,14 +4,22 @@ import { getPaymentProvider } from "@/lib/payments/adapter";
 
 export async function POST(req: Request) {
   const provider = getPaymentProvider();
-  const parsed = await provider.parseWebhook(req);
+  let parsed: Awaited<ReturnType<typeof provider.parseWebhook>>;
+  try {
+    parsed = await provider.parseWebhook(req);
+  } catch (error) {
+    return NextResponse.json(
+      { ok: false, error: error instanceof Error ? error.message : "Invalid webhook payload" },
+      { status: 400 },
+    );
+  }
 
   if (!parsed.userId) {
     return NextResponse.json({ ok: true, ignored: true });
   }
 
-  const supabaseUrl = process.env.SUPABASE_URL;
-  const serviceKey = process.env.SUPABASE_SERVICE_KEY;
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL;
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SERVICE_KEY;
   if (!supabaseUrl || !serviceKey) {
     return NextResponse.json({ ok: false, error: "Missing Supabase server env" }, { status: 500 });
   }
