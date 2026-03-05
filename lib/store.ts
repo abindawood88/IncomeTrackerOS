@@ -17,10 +17,8 @@ import type { Tier } from "./subscription-config";
 export interface DFPStore {
   subscriptionTier: "free" | "pro" | "pro_plus";
   subscriptionStatus: "active" | "canceled" | "past_due" | "trialing" | "unknown";
-  syncStatus: "idle" | "syncing" | "synced" | "error";
   setSubscriptionTier: (tier: DFPStore["subscriptionTier"]) => void;
   setSubscriptionStatus: (status: DFPStore["subscriptionStatus"]) => void;
-  setSyncStatus: (status: DFPStore["syncStatus"]) => void;
   goal: UserGoal;
   setGoal: (patch: Partial<UserGoal>) => void;
 
@@ -120,10 +118,8 @@ export const useDFPStore = create<DFPStore>()(
     (set) => ({
       subscriptionTier: "free",
       subscriptionStatus: "unknown",
-      syncStatus: "idle",
       setSubscriptionTier: (tier) => set({ subscriptionTier: tier }),
       setSubscriptionStatus: (status) => set({ subscriptionStatus: status }),
-      setSyncStatus: (status) => set({ syncStatus: status }),
 
       goal: initialGoal,
       setGoal: (patch) =>
@@ -342,6 +338,7 @@ export const useDFPStore = create<DFPStore>()(
       partialize: (state) => ({
         subscriptionTier: state.subscriptionTier,
         subscriptionStatus: state.subscriptionStatus,
+        // syncStatus intentionally excluded so it resets to "idle" on load
         goal: state.goal,
         fmpKey: state.fmpKey,
         keyStatus: state.keyStatus,

@@ -2,38 +2,23 @@
 
 export type PortfolioInputMode = "preset" | "manual";
 
-export type PresetPortfolioKey =
-  | "income-core"
-  | "balanced-growth"
-  | "high-yield"
-  | "covered-call";
-
-const PRESET_LABELS: Record<PresetPortfolioKey, string> = {
-  "income-core": "Income Core (SCHD, DGRO, VYM)",
-  "balanced-growth": "Balanced Growth (VTI, VOO, SCHD)",
-  "high-yield": "High Yield (JEPI, JEPQ, QYLD)",
-  "covered-call": "Covered Call Focus (JEPI, JEPQ, XYLD)",
-};
-
 export default function WizardStep3({
   mode,
-  preset,
+  selectedProfileSummary,
   manualHoldings,
   manualValidCount,
   manualErrors,
   manualWarnings,
   onModeChange,
-  onPresetChange,
   onManualHoldingsChange,
 }: {
   mode: PortfolioInputMode;
-  preset: PresetPortfolioKey;
+  selectedProfileSummary: { title: string; etfs: string[] } | null;
   manualHoldings: string;
   manualValidCount: number;
   manualErrors: string[];
   manualWarnings: string[];
   onModeChange: (value: PortfolioInputMode) => void;
-  onPresetChange: (value: PresetPortfolioKey) => void;
   onManualHoldingsChange: (value: string) => void;
 }) {
   return (
@@ -51,20 +36,22 @@ export default function WizardStep3({
         </select>
       </label>
       {mode === "preset" && (
-        <label className="block text-sm text-textDim">
-          Pick a pre-selected portfolio
-          <select
-            className="mt-1 w-full rounded-lg border border-border bg-bg px-3 py-2 text-textBright"
-            value={preset}
-            onChange={(e) => onPresetChange(e.target.value as PresetPortfolioKey)}
-          >
-            {Object.entries(PRESET_LABELS).map(([key, label]) => (
-              <option key={key} value={key}>
-                {label}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className="rounded-xl border border-gold/40 bg-gold/5 p-3">
+          <div className="mb-1 text-xs text-textDim">Selected profile from Step 2</div>
+          <div className="font-semibold text-textBright">
+            {selectedProfileSummary?.title ?? "No profile selected"}
+          </div>
+          {selectedProfileSummary ? (
+            <div className="mt-2 flex flex-wrap gap-1 text-xs text-textDim">
+              {selectedProfileSummary.etfs.map((etf) => (
+                <span key={etf} className="rounded-full border border-border px-2 py-0.5">
+                  {etf}
+                </span>
+              ))}
+            </div>
+          ) : null}
+          <div className="mt-2 text-xs text-textDim">These ETFs will be added to your portfolio.</div>
+        </div>
       )}
       {mode === "manual" && (
         <div className="space-y-2">

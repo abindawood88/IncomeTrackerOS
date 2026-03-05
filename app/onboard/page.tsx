@@ -11,10 +11,7 @@ import WizardStep2, {
   type FreedomFocus,
   type PortfolioProfileKey,
 } from "@/components/onboard/WizardStep2";
-import WizardStep3, {
-  type PortfolioInputMode,
-  type PresetPortfolioKey,
-} from "@/components/onboard/WizardStep3";
+import WizardStep3, { type PortfolioInputMode } from "@/components/onboard/WizardStep3";
 import { ETF_DB } from "@/lib/etf-db";
 import { computeRequiredMonthlyIncomeFromExpenses } from "@/lib/expense-coverage";
 import { useDFPStore } from "@/lib/store";
@@ -25,13 +22,6 @@ function profileToStoreStrategy(profile: PortfolioProfileKey): "income" | "growt
   if (profile === "income-highyield") return "hyper";
   return "income";
 }
-
-const PRESET_PORTFOLIOS: Record<PresetPortfolioKey, string[]> = {
-  "income-core": ["SCHD", "DGRO", "VYM"],
-  "balanced-growth": ["VTI", "VOO", "SCHD"],
-  "high-yield": ["JEPI", "JEPQ", "QYLD"],
-  "covered-call": ["JEPI", "JEPQ", "XYLD"],
-};
 
 type ParsedHolding = { ticker: string; shares: number; avgCost: number };
 type ManualHoldingValidation = {
@@ -117,7 +107,6 @@ export default function OnboardPage() {
   const [focus, setFocus] = useState<FreedomFocus>("income");
   const [profile, setProfile] = useState<PortfolioProfileKey>(defaultProfileForFocus("income"));
   const [portfolioMode, setPortfolioMode] = useState<PortfolioInputMode>("preset");
-  const [presetPortfolio, setPresetPortfolio] = useState<PresetPortfolioKey>("income-core");
   const [manualHoldings, setManualHoldings] = useState("");
 
   const effectiveTargetMonthly = useMemo(() => {
@@ -139,6 +128,7 @@ export default function OnboardPage() {
   }, [step1.coveragePct, step1.goalMode, step1.targetExpense, step1.targetIncome]);
   const manualValidation = useMemo(() => validateManualHoldings(manualHoldings), [manualHoldings]);
   const manualHasBlockingErrors = portfolioMode === "manual" && manualValidation.errors.length > 0;
+  const selectedProfileDef = PROFILE_DEFS.find((item) => item.key === profile);
 
   function seedPortfolio(): void {
     resetPortfolio();
@@ -152,10 +142,12 @@ export default function OnboardPage() {
       }
     }
 
-    const profileTickers = PROFILE_DEFS.find((item) => item.key === profile)?.etfs ?? [];
-    const presetTickers = PRESET_PORTFOLIOS[presetPortfolio] ?? [];
-    const tickers = profileTickers.length > 0 ? profileTickers : presetTickers.length > 0 ? presetTickers : [];
-    if (tickers.length === 0) return;
+    const profileTickers = selectedProfileDef?.etfs ?? [];
+    if (profileTickers.length === 0) {
+      console.warn("Onboarding seed skipped: no profile ETFs found for selected profile.");
+      return;
+    }
+    const tickers = profileTickers;
     const budgetPerHolding = step1.capital > 0 ? step1.capital / tickers.length : 0;
 
     for (const ticker of tickers) {
@@ -212,13 +204,16 @@ export default function OnboardPage() {
           {step === 3 ? (
             <WizardStep3
               mode={portfolioMode}
-              preset={presetPortfolio}
+              selectedProfileSummary={
+                selectedProfileDef
+                  ? { title: selectedProfileDef.title, etfs: selectedProfileDef.etfs }
+                  : null
+              }
               manualHoldings={manualHoldings}
               manualValidCount={manualValidation.rows.length}
               manualErrors={manualValidation.errors}
               manualWarnings={manualValidation.warnings}
               onModeChange={setPortfolioMode}
-              onPresetChange={setPresetPortfolio}
               onManualHoldingsChange={setManualHoldings}
             />
           ) : null}
