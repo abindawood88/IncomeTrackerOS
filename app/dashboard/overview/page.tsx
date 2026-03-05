@@ -5,6 +5,8 @@ import { SortableContext, arrayMove, useSortable, verticalListSortingStrategy } 
 import { useMemo, useState } from "react";
 import KPIGrid from "@/components/dashboard/KPIGrid";
 import MilestoneStack from "@/components/dashboard/MilestoneStack";
+import FreedomScoreCard from "@/components/dashboard/FreedomScoreCard";
+import AICommentaryBubble from "@/components/dashboard/AICommentaryBubble";
 import ProjectionChart from "@/components/charts/ProjectionChart";
 import ProgressBar from "@/components/ui/ProgressBar";
 import { computeExpenseCoverage, coveredGoalCount, totalExpenses } from "@/lib/expense-coverage";
@@ -204,6 +206,15 @@ export default function DashboardOverviewPage() {
 
   return (
     <div className="space-y-4">
+      <FreedomScoreCard
+        score={metrics.score}
+        freedomYear={metrics.freedomYr}
+        targetMonthly={metrics.targetMonthly}
+        monthlyIncome={metrics.monthlyIncome}
+      />
+
+      <AICommentaryBubble />
+
       <KPIGrid
         monthlyIncome={metrics.monthlyIncome}
         coverage={metrics.coverage}

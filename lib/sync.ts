@@ -4,6 +4,7 @@ import { useAuth } from "@clerk/nextjs";
 import { useEffect, useRef } from "react";
 import { supabaseClient } from "@/lib/db";
 import { useDFPStore } from "@/lib/store";
+import { SUBSCRIPTION_CONFIG } from "@/lib/subscription-config";
 import type { DFPStore } from "@/lib/store";
 
 const DEBOUNCE_MS = 1500;
@@ -76,6 +77,8 @@ export function useSync(): void {
   const syncChainRef = useRef<Promise<void>>(Promise.resolve());
 
   useEffect(() => {
+    const tier = useDFPStore.getState().subscriptionTier;
+    if (!SUBSCRIPTION_CONFIG[tier].features.supabase_sync) return;
     if (!userId || !supabaseClient || loadedRef.current) return;
     const client = supabaseClient;
 
@@ -133,6 +136,8 @@ export function useSync(): void {
   }, [userId]);
 
   useEffect(() => {
+    const tier = useDFPStore.getState().subscriptionTier;
+    if (!SUBSCRIPTION_CONFIG[tier].features.supabase_sync) return;
     if (!userId || !supabaseClient) return;
     const client = supabaseClient;
 
@@ -199,11 +204,15 @@ export function useSync(): void {
       if (timerRef.current) clearTimeout(timerRef.current);
 
       timerRef.current = setTimeout(() => {
+        useDFPStore.getState().setSyncStatus("syncing");
         syncChainRef.current = syncChainRef.current
           .then(async () => {
             await persist(state);
+            useDFPStore.getState().setSyncStatus("synced");
           })
-          .catch(() => undefined);
+          .catch(() => {
+            useDFPStore.getState().setSyncStatus("error");
+          });
       }, DEBOUNCE_MS);
     });
 

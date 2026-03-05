@@ -14,6 +14,12 @@ import type {
 import { STORAGE_KEYS, clamp, normalizeTicker } from "./utils";
 
 export interface DFPStore {
+  subscriptionTier: "free" | "pro" | "pro_plus";
+  subscriptionStatus: "active" | "canceled" | "past_due" | "trialing" | "unknown";
+  syncStatus: "idle" | "syncing" | "synced" | "error";
+  setSubscriptionTier: (tier: DFPStore["subscriptionTier"]) => void;
+  setSubscriptionStatus: (status: DFPStore["subscriptionStatus"]) => void;
+  setSyncStatus: (status: DFPStore["syncStatus"]) => void;
   goal: UserGoal;
   setGoal: (patch: Partial<UserGoal>) => void;
 
@@ -106,6 +112,13 @@ export function sanitizeGoalPatch(patch: Partial<UserGoal>): Partial<UserGoal> {
 export const useDFPStore = create<DFPStore>()(
   persist(
     (set) => ({
+      subscriptionTier: "free",
+      subscriptionStatus: "unknown",
+      syncStatus: "idle",
+      setSubscriptionTier: (tier) => set({ subscriptionTier: tier }),
+      setSubscriptionStatus: (status) => set({ subscriptionStatus: status }),
+      setSyncStatus: (status) => set({ syncStatus: status }),
+
       goal: initialGoal,
       setGoal: (patch) =>
         set((state) => ({
@@ -316,6 +329,8 @@ export const useDFPStore = create<DFPStore>()(
         };
       },
       partialize: (state) => ({
+        subscriptionTier: state.subscriptionTier,
+        subscriptionStatus: state.subscriptionStatus,
         goal: state.goal,
         fmpKey: state.fmpKey,
         keyStatus: state.keyStatus,
