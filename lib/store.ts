@@ -12,6 +12,7 @@ import type {
   UserGoal,
   } from "./types";
 import { STORAGE_KEYS, clamp, normalizeTicker } from "./utils";
+import type { Tier } from "./subscription-config";
 
 export interface DFPStore {
   subscriptionTier: "free" | "pro" | "pro_plus";
@@ -56,6 +57,11 @@ export interface DFPStore {
   setOnboardingStep: (step: OnboardingStep) => void;
   completeOnboarding: () => void;
   resetOnboarding: () => void;
+
+  tier: Tier;
+  setTier: (tier: Tier) => void;
+  syncStatus: "idle" | "syncing" | "synced" | "error";
+  setSyncStatus: (status: DFPStore["syncStatus"]) => void;
 }
 
 const initialGoal: UserGoal = {
@@ -214,6 +220,8 @@ export const useDFPStore = create<DFPStore>()(
       actualDividends: new Array(12).fill(0),
       expenseGoals: [],
       onboarding: initialOnboarding,
+      tier: "free",
+      syncStatus: "idle",
       setCrash: (value) =>
         set({
           crash: clamp(value, 0, 100),
@@ -296,6 +304,8 @@ export const useDFPStore = create<DFPStore>()(
             completedAt: null,
           },
         }),
+      setTier: (tier) => set({ tier }),
+      setSyncStatus: (syncStatus) => set({ syncStatus }),
     }),
     {
       name: STORAGE_KEYS.STORE,
@@ -326,6 +336,7 @@ export const useDFPStore = create<DFPStore>()(
             ...initialOnboarding,
             ...(incoming.onboarding ?? {}),
           },
+          tier: incoming.tier ?? "free",
         };
       },
       partialize: (state) => ({
@@ -341,6 +352,7 @@ export const useDFPStore = create<DFPStore>()(
         actualDividends: state.actualDividends,
         expenseGoals: state.expenseGoals,
         onboarding: state.onboarding,
+        tier: state.tier,
       }),
     },
   ),

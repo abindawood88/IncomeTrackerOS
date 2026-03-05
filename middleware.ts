@@ -1,8 +1,20 @@
-import type { NextRequest } from "next/server";
-import { NextResponse } from "next/server";
+import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
+import { NextResponse, type NextFetchEvent, type NextRequest } from "next/server";
 
-export default function middleware(_req: NextRequest) {
-  return NextResponse.next();
+const isDashboardRoute = createRouteMatcher(["/dashboard(.*)"]);
+const hasClerk = Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY && process.env.CLERK_SECRET_KEY);
+
+const authMiddleware = hasClerk
+  ? clerkMiddleware(async (auth, req) => {
+      if (isDashboardRoute(req)) {
+        await auth.protect();
+      }
+    })
+  : null;
+
+export default function middleware(req: NextRequest, event: NextFetchEvent) {
+  if (!hasClerk) return NextResponse.next();
+  return authMiddleware!(req, event);
 }
 
 export const config = {

@@ -1,29 +1,47 @@
 import { auth } from "@clerk/nextjs/server";
 import { NextResponse } from "next/server";
 import { getPaymentProvider } from "@/lib/payments/adapter";
-import type { Tier } from "@/lib/payments/types";
+import type { Tier } from "@/lib/subscription-config";
 
-const validTiers: Tier[] = ["pro", "pro_plus"];
+function parseTier(value: unknown): Tier | null {
+  return value === "pro" || value === "pro_plus" ? value : null;
+}
+
+async function getAuthenticatedUserIdIfAvailable(): Promise<string | null> {
+  const hasClerk = Boolean(
+    process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY && process.env.CLERK_SECRET_KEY,
+  );
+  if (!hasClerk) return null;
+
+  try {
+    const { userId } = await auth();
+    return userId ?? null;
+  } catch {
+    return null;
+  }
+}
 
 export async function POST(req: Request) {
-  const { userId } = await auth();
-  const body = (await req.json().catch(() => ({}))) as { tier?: Tier };
+  const userId = await getAuthenticatedUserIdIfAvailable();
+  const body = (await req.json().catch(() => ({}))) as { tier?: string; userId?: string };
+  const tier = parseTier(body.tier);
 
-  if (!userId) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  if (!body.tier || !validTiers.includes(body.tier)) {
+  if (!tier) {
     return NextResponse.json({ error: "Invalid tier" }, { status: 400 });
   }
 
+  const effectiveUserId = userId ?? body.userId ?? null;
+  if (!effectiveUserId) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL ?? "http://127.0.0.1:3000";
   const provider = getPaymentProvider();
-  const origin = new URL(req.url).origin;
   const session = await provider.createCheckoutSession({
-    userId,
-    tier: body.tier,
-    successUrl: `${origin}/upgrade/success`,
-    cancelUrl: `${origin}/upgrade/cancel`,
+    userId: effectiveUserId,
+    tier,
+    successUrl: `${baseUrl}/upgrade/success`,
+    cancelUrl: `${baseUrl}/upgrade/cancel`,
   });
 
   return NextResponse.json(session);

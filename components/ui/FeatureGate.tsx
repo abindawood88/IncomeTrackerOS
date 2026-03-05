@@ -13,25 +13,22 @@ export default function FeatureGate({
   title: string;
   children: React.ReactNode;
 }) {
-  const { can } = useSubscription();
+  const { can, tier } = useSubscription();
   const allowed = can(feature);
 
   return (
-    <div className="relative">
-      <div className={allowed ? "" : "pointer-events-none select-none blur-sm"}>{children}</div>
-      {!allowed ? (
-        <div
-          data-testid="feature-gate-overlay"
-          className="absolute inset-0 flex items-center justify-center rounded-xl border border-border bg-bg/75"
-        >
-          <div className="rounded-xl border border-border bg-bg-2 p-4 text-center">
-            <p className="text-sm text-textBright">{title} is a premium feature.</p>
+    <div className="relative" data-testid={`feature-gate-${feature}`}>
+      <div className={allowed ? "" : "pointer-events-none select-none blur-[2px]"}>{children}</div>
+      {allowed ? null : (
+        <div className="absolute inset-0 flex items-center justify-center rounded-xl border border-border bg-bg/70 p-4 text-center backdrop-blur-sm">
+          <div>
+            <p className="text-sm font-semibold text-textBright">{title} is locked on {tier.toUpperCase()}</p>
             <Link href="/upgrade" className="mt-2 inline-block rounded-lg bg-gold px-3 py-2 text-xs font-semibold text-bg">
-              Upgrade now
+              Upgrade to continue
             </Link>
           </div>
         </div>
-      ) : null}
+      )}
     </div>
   );
 }

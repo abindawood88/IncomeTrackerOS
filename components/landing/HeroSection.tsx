@@ -16,7 +16,7 @@ export default function HeroSection() {
         className="mt-8 inline-flex rounded-lg bg-gold px-6 py-3 text-sm font-semibold text-bg"
         data-testid="hero-cta"
       >
-        Start Free →
+        Start Free
       </Link>
     </section>
   );

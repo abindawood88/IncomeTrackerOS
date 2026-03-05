@@ -1,6 +1,7 @@
 import "./globals.css";
 import type { Metadata } from "next";
-import AppProviders from "@/components/ui/AppProviders";
+import { ClerkProvider } from "@clerk/nextjs";
+import { ToastProvider } from "@/components/ui/ToastProvider";
 
 export const metadata: Metadata = {
   title: "Dividend Freedom Pro",
@@ -13,7 +14,9 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="bg-bg text-textBright antialiased">
-        <AppProviders>{children}</AppProviders>
+        <ClerkProvider>
+          <ToastProvider>{children}</ToastProvider>
+        </ClerkProvider>
       </body>
     </html>
   );

@@ -1,22 +1,30 @@
-import type { PaymentProvider, WebhookPayload } from "@/lib/payments/adapter";
+import type { PaymentProvider } from "@/lib/payments/types";
+import type { Tier } from "@/lib/subscription-config";
 
-export const mockPaymentProvider: PaymentProvider = {
-  async createCheckoutSession({ tier, successUrl }): Promise<{ checkoutUrl: string }> {
-    return { checkoutUrl: `${successUrl}?tier=${tier}` };
+function parseTier(value: unknown): Tier | null {
+  if (value === "pro" || value === "pro_plus" || value === "free") return value;
+  return null;
+}
+
+export const mockProvider: PaymentProvider = {
+  async createCheckoutSession({ tier, successUrl }) {
+    const url = new URL(successUrl);
+    url.searchParams.set("tier", tier);
+    return { checkoutUrl: url.toString() };
   },
 
-  async parseWebhook(request: Request): Promise<WebhookPayload> {
+  async parseWebhook(request) {
     const body = (await request.json().catch(() => ({}))) as {
       eventType?: string;
       userId?: string;
-      tier?: "free" | "pro" | "pro_plus";
+      tier?: string;
       status?: "active" | "canceled" | "past_due" | "trialing" | "unknown";
     };
 
     return {
-      eventType: body.eventType ?? "unknown",
+      eventType: body.eventType ?? "mock.subscription.updated",
       userId: body.userId ?? null,
-      tier: body.tier ?? null,
+      tier: parseTier(body.tier ?? null),
       status: body.status ?? "unknown",
     };
   },

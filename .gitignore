@@ -15,3 +15,6 @@ _compiled_zip
 _deploy_docx
 _enhanced_zip
 {src,tests,docs}
+
+# clerk configuration (can include secrets)
+/.clerk/

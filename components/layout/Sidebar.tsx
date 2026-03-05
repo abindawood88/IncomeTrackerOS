@@ -26,9 +26,8 @@ const NAV_GROUPS = [
   {
     label: "Tools",
     items: [
-      { href: "/dashboard/etf-database",  label: "ETF Database", icon: "≡" },
+      { href: "/dashboard/etfs",          label: "ETF Browser",  icon: "≡" },
       { href: "/dashboard/templates",     label: "Templates",    icon: "⊞" },
-      { href: "/dashboard/scenarios",     label: "Scenarios",    icon: "⚡" },
       { href: "/dashboard/projections",   label: "Projections",  icon: "↗" },
     ],
   },

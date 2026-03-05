@@ -1,20 +1,22 @@
 "use client";
 
-import { useMemo } from "react";
+import { SUBSCRIPTION_CONFIG, type FeatureKey, type Tier } from "@/lib/subscription-config";
 import { useDFPStore } from "@/lib/store";
-import { SUBSCRIPTION_CONFIG, type FeatureKey } from "@/lib/subscription-config";
 
 export function useSubscription() {
-  const tier = useDFPStore((s) => s.subscriptionTier);
+  const tier = useDFPStore((s) => s.tier);
 
-  return useMemo(() => {
-    const config = SUBSCRIPTION_CONFIG[tier];
-    return {
-      tier,
-      limits: {
-        holdingsMax: config.holdingsMax,
-      },
-      can: (feature: FeatureKey) => config.features[feature],
-    };
-  }, [tier]);
+  const can = (feature: FeatureKey): boolean => {
+    return SUBSCRIPTION_CONFIG[tier].features[feature];
+  };
+
+  return {
+    tier,
+    limits: SUBSCRIPTION_CONFIG[tier],
+    can,
+  };
+}
+
+export function canTierAccessFeature(tier: Tier, feature: FeatureKey): boolean {
+  return SUBSCRIPTION_CONFIG[tier].features[feature];
 }

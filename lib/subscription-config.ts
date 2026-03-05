@@ -1,13 +1,17 @@
-export type SubscriptionTier = "free" | "pro" | "pro_plus";
+export type Tier = "free" | "pro" | "pro_plus";
 
-export type FeatureKey = "csv_import" | "drip_simulator" | "ai_insights" | "supabase_sync";
+export type FeatureKey =
+  | "csv_import"
+  | "drip_simulator"
+  | "ai_insights"
+  | "supabase_sync";
 
-type TierConfig = {
-  holdingsMax: number | null;
+export interface TierConfig {
+  holdingsMax: number;
   features: Record<FeatureKey, boolean>;
-};
+}
 
-export const SUBSCRIPTION_CONFIG: Record<SubscriptionTier, TierConfig> = {
+export const SUBSCRIPTION_CONFIG: Record<Tier, TierConfig> = {
   free: {
     holdingsMax: 3,
     features: {
@@ -18,7 +22,7 @@ export const SUBSCRIPTION_CONFIG: Record<SubscriptionTier, TierConfig> = {
     },
   },
   pro: {
-    holdingsMax: null,
+    holdingsMax: Number.POSITIVE_INFINITY,
     features: {
       csv_import: true,
       drip_simulator: true,
@@ -27,7 +31,7 @@ export const SUBSCRIPTION_CONFIG: Record<SubscriptionTier, TierConfig> = {
     },
   },
   pro_plus: {
-    holdingsMax: null,
+    holdingsMax: Number.POSITIVE_INFINITY,
     features: {
       csv_import: true,
       drip_simulator: true,

@@ -1,22 +1,24 @@
-"use client";
+import { createClient } from "@supabase/supabase-js";
+import type { Tier } from "@/lib/subscription-config";
 
-import { supabaseClient } from "@/lib/db";
-import { useDFPStore } from "@/lib/store";
-import type { SubscriptionTier } from "@/lib/subscription-config";
+const VALID_TIERS: Tier[] = ["free", "pro", "pro_plus"];
 
-export async function loadTier(userId: string): Promise<void> {
-  if (!supabaseClient) return;
-  const { data } = await supabaseClient
+function parseTier(value: string | null): Tier {
+  if (!value) return "free";
+  return VALID_TIERS.includes(value as Tier) ? (value as Tier) : "free";
+}
+
+export async function loadTier(userId: string): Promise<Tier> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const anon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !anon) return "free";
+
+  const supabase = createClient(url, anon);
+  const { data } = await supabase
     .from("user_subscriptions")
-    .select("tier,status")
+    .select("tier")
     .eq("user_id", userId)
     .maybeSingle();
 
-  if (!data) return;
-
-  const tier = (data.tier as SubscriptionTier | null) ?? "free";
-  useDFPStore.getState().setSubscriptionTier(tier);
-  useDFPStore.getState().setSubscriptionStatus(
-    (data.status as "active" | "canceled" | "past_due" | "trialing" | "unknown" | null) ?? "unknown",
-  );
+  return parseTier(data?.tier ?? null);
 }

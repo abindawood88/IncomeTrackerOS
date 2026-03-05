@@ -3,55 +3,87 @@
 import { useEffect, useMemo, useState } from "react";
 import { useDFPStore } from "@/lib/store";
 
-type Etf = {
+type EtfRow = {
   ticker: string;
   name: string;
   yield: number;
+  expenseRatio: number;
 };
 
 export default function EtfBrowserPage() {
-  const [items, setItems] = useState<Etf[]>([]);
-  const [q, setQ] = useState("");
+  const [query, setQuery] = useState("");
+  const [sort, setSort] = useState<"ticker" | "yield">("ticker");
+  const [rows, setRows] = useState<EtfRow[]>([]);
   const holdings = useDFPStore((s) => s.holdings);
   const addHolding = useDFPStore((s) => s.addHolding);
 
   useEffect(() => {
-    void fetch("/api/etfs").then(async (res) => {
-      const data = (await res.json()) as { items: Etf[] };
-      setItems(data.items);
-    });
-  }, []);
+    void (async () => {
+      const res = await fetch(`/api/etfs?q=${encodeURIComponent(query)}&sort=${sort}`);
+      const json = (await res.json()) as { rows: EtfRow[] };
+      setRows(json.rows);
+    })();
+  }, [query, sort]);
 
-  const filtered = useMemo(() => {
-    return items
-      .filter((item) => item.ticker.toLowerCase().includes(q.toLowerCase()) || item.name.toLowerCase().includes(q.toLowerCase()))
-      .sort((a, b) => b.yield - a.yield);
-  }, [items, q]);
+  const inPortfolio = useMemo(() => new Set(holdings.map((h) => h.ticker.toUpperCase())), [holdings]);
 
   return (
     <main className="space-y-4">
-      <h1 className="text-2xl font-semibold">ETF Browser</h1>
-      <input data-testid="etf-search" value={q} onChange={(e) => setQ(e.target.value)} className="w-full rounded-lg border border-border bg-bg-2 px-3 py-2" placeholder="Search ETFs" />
-      <div className="grid gap-2">
-        {filtered.slice(0, 40).map((item) => {
-          const inPortfolio = holdings.some((h) => h.ticker === item.ticker);
-          return (
-            <div key={item.ticker} className="flex items-center justify-between rounded-lg border border-border bg-bg-2 p-3">
-              <div>
-                <div className="font-semibold">{item.ticker}</div>
-                <div className="text-xs text-textDim">{item.name}</div>
-              </div>
-              <button
-                data-testid={`add-etf-${item.ticker}`}
-                disabled={inPortfolio}
-                onClick={() => addHolding({ ticker: item.ticker, shares: 1, avgCost: 100, cagrOvr: null })}
-                className="rounded-lg border border-border px-3 py-2 text-xs disabled:opacity-50"
-              >
-                {inPortfolio ? "In Portfolio" : "Add to Portfolio"}
-              </button>
-            </div>
-          );
-        })}
+      <h1 className="text-2xl font-semibold text-textBright">ETF Browser</h1>
+      <div className="flex flex-wrap gap-2">
+        <input
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder="Search ETF"
+          className="rounded-lg border border-border bg-bg-2 px-3 py-2 text-sm"
+        />
+        <select
+          value={sort}
+          onChange={(e) => setSort((e.target.value as "ticker" | "yield") ?? "ticker")}
+          className="rounded-lg border border-border bg-bg-2 px-3 py-2 text-sm"
+        >
+          <option value="ticker">Sort: Ticker</option>
+          <option value="yield">Sort: Yield</option>
+        </select>
+      </div>
+      <div className="overflow-x-auto rounded-2xl border border-border bg-bg-2">
+        <table className="w-full min-w-[620px] text-sm">
+          <thead className="text-left text-xs uppercase text-textDim">
+            <tr>
+              <th className="px-3 py-2">Ticker</th>
+              <th className="px-3 py-2">Name</th>
+              <th className="px-3 py-2">Yield %</th>
+              <th className="px-3 py-2">Expense %</th>
+              <th className="px-3 py-2">Action</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((row) => {
+              const already = inPortfolio.has(row.ticker);
+              return (
+                <tr key={row.ticker} className="border-t border-border">
+                  <td className="px-3 py-2 font-semibold">{row.ticker}</td>
+                  <td className="px-3 py-2">{row.name}</td>
+                  <td className="px-3 py-2">{row.yield.toFixed(1)}</td>
+                  <td className="px-3 py-2">{row.expenseRatio.toFixed(2)}</td>
+                  <td className="px-3 py-2">
+                    {already ? (
+                      <span className="rounded-full border border-teal/40 bg-teal-dim px-2 py-1 text-xs text-teal-light">In Portfolio</span>
+                    ) : (
+                      <button
+                        type="button"
+                        className="rounded-lg border border-border px-2 py-1 text-xs"
+                        onClick={() => addHolding({ ticker: row.ticker, shares: 1, avgCost: 100, cagrOvr: null })}
+                      >
+                        Add to Portfolio
+                      </button>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
     </main>
   );

@@ -206,15 +206,7 @@ export default function DashboardOverviewPage() {
 
   return (
     <div className="space-y-4">
-      <FreedomScoreCard
-        score={metrics.score}
-        freedomYear={metrics.freedomYr}
-        targetMonthly={metrics.targetMonthly}
-        monthlyIncome={metrics.monthlyIncome}
-      />
-
       <AICommentaryBubble />
-
       <KPIGrid
         monthlyIncome={metrics.monthlyIncome}
         coverage={metrics.coverage}
@@ -236,6 +228,13 @@ export default function DashboardOverviewPage() {
           />
         </div>
         <div className="space-y-4">
+          <FreedomScoreCard
+            freedomScore={metrics.coverage}
+            freedomYear={metrics.freedomYr}
+            yearsRemaining={metrics.freedomYr}
+            income={metrics.monthlyIncome}
+            expenses={summary.total}
+          />
           <MilestoneStack milestones={rightPanelMilestones} />
 
           <div className="rounded-2xl border border-border bg-bg-2 p-4">

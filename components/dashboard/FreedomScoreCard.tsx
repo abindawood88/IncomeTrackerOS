@@ -1,31 +1,51 @@
 "use client";
 
 export default function FreedomScoreCard({
-  score,
+  freedomScore,
   freedomYear,
-  targetMonthly,
-  monthlyIncome,
+  yearsRemaining,
+  income,
+  expenses,
 }: {
-  score: number;
+  freedomScore: number;
   freedomYear: number | null;
-  targetMonthly: number;
-  monthlyIncome: number;
+  yearsRemaining: number | null;
+  income: number;
+  expenses: number;
 }) {
-  const currentYear = new Date().getFullYear();
-  const yearsRemaining = freedomYear ? Math.max(0, freedomYear - currentYear) : null;
-  const gap = Math.max(0, targetMonthly - monthlyIncome);
+  const gap = Math.max(0, expenses - income);
 
   return (
-    <div className="rounded-2xl border border-border bg-bg-2 p-4" data-testid="freedom-score-card">
+    <section className="rounded-2xl border border-border bg-bg-2 p-4" data-testid="freedom-score-card">
       <h2 className="text-lg font-semibold text-textBright">Freedom Score</h2>
-      <div className="mt-2 text-3xl font-bold text-gold">{score}%</div>
-      <div className="mt-2 text-sm text-textDim">
-        Freedom Date: {freedomYear ?? "Not reachable within 30 years."}
+      <div className="mt-3 grid gap-2 text-sm">
+        <div className="flex justify-between">
+          <span className="text-textDim">Freedom Score (%)</span>
+          <span className="font-semibold text-textBright">{freedomScore}%</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-textDim">Freedom Date</span>
+          <span className="font-semibold text-textBright">
+            {freedomYear ? `Year ${new Date().getFullYear() + freedomYear}` : "Not reachable within 30 years."}
+          </span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-textDim">Years remaining</span>
+          <span className="font-semibold text-textBright">{yearsRemaining ?? "N/A"}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-textDim">Dividend income</span>
+          <span className="font-semibold text-textBright">${Math.round(income).toLocaleString()}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-textDim">Expenses</span>
+          <span className="font-semibold text-textBright">${Math.round(expenses).toLocaleString()}</span>
+        </div>
+        <div className="flex justify-between">
+          <span className="text-textDim">Gap</span>
+          <span className="font-semibold text-textBright">${Math.round(gap).toLocaleString()}</span>
+        </div>
       </div>
-      <div className="text-sm text-textDim">Years remaining: {yearsRemaining ?? "—"}</div>
-      <div className="mt-2 text-sm text-textBright">
-        Income ${Math.round(monthlyIncome).toLocaleString()} vs Expenses ${Math.round(targetMonthly).toLocaleString()} (Gap ${Math.round(gap).toLocaleString()})
-      </div>
-    </div>
+    </section>
   );
 }

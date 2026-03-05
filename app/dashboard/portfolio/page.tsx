@@ -4,16 +4,21 @@ import { useMemo, useState } from "react";
 import AddHoldingForm from "@/components/portfolio/AddHoldingForm";
 import AllocationEditor from "@/components/portfolio/AllocationEditor";
 import HoldingsTable from "@/components/portfolio/HoldingsTable";
+import FeatureGate from "@/components/ui/FeatureGate";
 import { ETF_DB } from "@/lib/etf-db";
 import { parseHoldingsCSV, type CSVImportResult } from "@/lib/csv-import";
 import { useDFPStore } from "@/lib/store";
+import { useToast } from "@/lib/use-toast";
 import { useDerivedMetrics } from "@/lib/use-derived-metrics";
+import { useSubscription } from "@/lib/use-subscription";
 
 export default function DashboardPortfolioPage() {
   const [tab, setTab] = useState<"holdings" | "allocation">("holdings");
   const [importOpen, setImportOpen] = useState(false);
   const [csvText, setCsvText] = useState("");
   const [preview, setPreview] = useState<CSVImportResult | null>(null);
+  const { limits } = useSubscription();
+  const { toast } = useToast();
   const strategy = useDFPStore((s) => s.goal.strategy);
   const keyStatus = useDFPStore((s) => s.keyStatus);
   const holdings = useDFPStore((s) => s.holdings);
@@ -27,6 +32,7 @@ export default function DashboardPortfolioPage() {
   const enriched = useDerivedMetrics().enriched;
 
   const canRefresh = holdings.length > 0;
+  const holdingsLimitReached = Number.isFinite(limits.holdingsMax) && holdings.length >= limits.holdingsMax;
 
   async function refreshAll() {
     if (!canRefresh) return;
@@ -51,7 +57,12 @@ export default function DashboardPortfolioPage() {
   function applyImport(mode: "replace" | "merge") {
     if (!preview) return;
     if (mode === "replace") resetPortfolio();
-    preview.valid.forEach((row) =>
+    const available = Number.isFinite(limits.holdingsMax) ? limits.holdingsMax - holdings.length : Infinity;
+    const rowsToApply = preview.valid.slice(0, Math.max(0, available));
+    if (rowsToApply.length < preview.valid.length) {
+      toast("Holding limit reached on your current plan.", "warning");
+    }
+    rowsToApply.forEach((row) =>
       addHolding({ ticker: row.ticker, shares: row.shares, avgCost: row.avgCost, cagrOvr: null }),
     );
     setPreview(null);
@@ -81,14 +92,16 @@ export default function DashboardPortfolioPage() {
       {tab === "holdings" ? (
         <>
           <div className="rounded-2xl border border-border bg-bg-2 p-4">
-            <button
-              data-testid="import-csv-toggle"
-              type="button"
-              onClick={() => setImportOpen((open) => !open)}
-              className="rounded-lg border border-border px-3 py-2 text-sm text-textBright"
-            >
-              Import CSV
-            </button>
+            <FeatureGate feature="csv_import" title="CSV Import">
+              <button
+                data-testid="import-csv-toggle"
+                type="button"
+                onClick={() => setImportOpen((open) => !open)}
+                className="rounded-lg border border-border px-3 py-2 text-sm text-textBright"
+              >
+                Import CSV
+              </button>
+            </FeatureGate>
             {importOpen ? (
               <div className="mt-4 space-y-3">
                 <label className="block text-sm text-textDim">
@@ -220,7 +233,14 @@ export default function DashboardPortfolioPage() {
           </div>
           <AddHoldingForm
             strategy={strategy}
-            onAdd={(h) => addHolding({ ticker: h.ticker, shares: h.shares, avgCost: h.avgCost, cagrOvr: null })}
+            onAdd={(h) => {
+              if (holdingsLimitReached) {
+                toast("Free plan supports up to 3 holdings. Upgrade to add more.", "warning");
+                return;
+              }
+              addHolding({ ticker: h.ticker, shares: h.shares, avgCost: h.avgCost, cagrOvr: null });
+              toast("Holding added", "success");
+            }}
           />
           <HoldingsTable
             rows={enriched}

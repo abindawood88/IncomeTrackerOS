@@ -1,0 +1,12 @@
+[
+  { "ticker": "SCHD", "name": "Schwab US Dividend Equity ETF", "yield": 3.6, "expenseRatio": 0.06 },
+  { "ticker": "VTI", "name": "Vanguard Total Stock Market ETF", "yield": 1.4, "expenseRatio": 0.03 },
+  { "ticker": "VOO", "name": "Vanguard S&P 500 ETF", "yield": 1.3, "expenseRatio": 0.03 },
+  { "ticker": "JEPI", "name": "JPMorgan Equity Premium Income ETF", "yield": 7.9, "expenseRatio": 0.35 },
+  { "ticker": "JEPQ", "name": "JPMorgan Nasdaq Equity Premium Income ETF", "yield": 9.1, "expenseRatio": 0.35 },
+  { "ticker": "QYLD", "name": "Global X NASDAQ 100 Covered Call ETF", "yield": 11.2, "expenseRatio": 0.60 },
+  { "ticker": "DGRO", "name": "iShares Core Dividend Growth ETF", "yield": 2.3, "expenseRatio": 0.08 },
+  { "ticker": "VYM", "name": "Vanguard High Dividend Yield ETF", "yield": 3.1, "expenseRatio": 0.06 },
+  { "ticker": "HDV", "name": "iShares Core High Dividend ETF", "yield": 3.8, "expenseRatio": 0.08 },
+  { "ticker": "SPYD", "name": "SPDR Portfolio S&P 500 High Dividend ETF", "yield": 4.7, "expenseRatio": 0.07 }
+]
