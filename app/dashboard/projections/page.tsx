@@ -2,19 +2,29 @@
 
 import { useMemo, useState } from "react";
 import ProjectionChart from "@/components/charts/ProjectionChart";
+import DRIPSimulatorPanel from "@/components/projections/DRIPSimulatorPanel";
+import FeatureGate from "@/components/ui/FeatureGate";
 import ProgressBar from "@/components/ui/ProgressBar";
-import { useDFPStore } from "@/lib/store";
 import { useDerivedMetrics } from "@/lib/use-derived-metrics";
 
 export default function DashboardProjectionsPage() {
   const [expanded, setExpanded] = useState(false);
-    const metrics = useDerivedMetrics();
+  const metrics = useDerivedMetrics();
 
   const rows = useMemo(() => (expanded ? metrics.projData : metrics.projData.slice(0, 10)), [expanded, metrics.projData]);
 
   return (
     <div className="space-y-4">
       <ProjectionChart projData={metrics.projData} target={metrics.targetMonthly} color="#f0c842" />
+      <FeatureGate feature="drip_simulator" title="DRIP simulator">
+        <DRIPSimulatorPanel
+          capital={metrics.totalVal}
+          monthly={0}
+          cagr={metrics.bCagr}
+          yld={metrics.bYield}
+          years={30}
+        />
+      </FeatureGate>
       <div className="overflow-x-auto rounded-2xl border border-border bg-bg-2">
         <table className="w-full min-w-[760px] text-sm">
           <thead className="bg-bg-3 text-left text-xs uppercase text-textDim">
@@ -43,11 +53,7 @@ export default function DashboardProjectionsPage() {
           </tbody>
         </table>
       </div>
-      <button
-        type="button"
-        onClick={() => setExpanded((v) => !v)}
-        className="rounded-lg border border-border px-3 py-2 text-sm"
-      >
+      <button type="button" onClick={() => setExpanded((v) => !v)} className="rounded-lg border border-border px-3 py-2 text-sm">
         {expanded ? "Collapse" : "Show all 30 years"}
       </button>
     </div>
