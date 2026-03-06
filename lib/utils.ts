@@ -1,4 +1,4 @@
-import type { OnboardingState, OnboardingStep, UserGoal } from "./types";
+import type { OnboardingState, OnboardingStep, RiskTolerance, UserGoal } from "./types";
 
 // Shared utilities - import from here, never redefine elsewhere
 
@@ -51,4 +51,12 @@ export function resolveOnboardingStep(goal: UserGoal): OnboardingStep {
   if (!goal.hasSetCapital) return "capital";
   if (!goal.preferredTypes.length) return "types";
   return "recommendations";
+}
+
+
+export function normalizeRiskTolerance(r: RiskTolerance): "low" | "medium" | "high" {
+  if (r === "conservative") return "low";
+  if (r === "balanced") return "medium";
+  if (r === "aggressive") return "high";
+  return r;
 }

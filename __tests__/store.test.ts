@@ -67,10 +67,10 @@ assert.equal(useDFPStore.getState().goal.taxRate, 0);
 
 resetStore();
 useDFPStore.getState().addHolding({ ticker: "SCHD", shares: -10, avgCost: 80, cagrOvr: null });
-assert.equal(useDFPStore.getState().holdings[0].shares, 0);
+assert.equal(useDFPStore.getState().holdings.length, 0);
 resetStore();
 useDFPStore.getState().addHolding({ ticker: "SCHD", shares: Number.NaN, avgCost: 80, cagrOvr: null });
-assert.equal(useDFPStore.getState().holdings[0].shares, 0);
+assert.equal(useDFPStore.getState().holdings.length, 0);
 resetStore();
 useDFPStore.getState().addHolding({ ticker: "schd", shares: 10, avgCost: 80, cagrOvr: null });
 assert.equal(useDFPStore.getState().holdings[0].ticker, "SCHD");

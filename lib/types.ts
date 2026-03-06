@@ -8,7 +8,7 @@ export type PayFrequency  = "weekly" | "monthly" | "quarterly" | "annual";
 export type DataSource    = "live"     | "local" | "manual" | "stub";
 export type Strategy      = "income"   | "growth" | "hyper";
 export type FetchStatus   = "idle"     | "loading" | "ok" | "error";
-export type RiskTolerance = "low" | "medium" | "high";
+export type RiskTolerance = "low" | "medium" | "high" | "conservative" | "balanced" | "aggressive";
 export type TargetPeriod = "monthly" | "yearly";
 export type GoalMode = "manual" | "expenses";
 export type PortfolioType =
@@ -34,18 +34,27 @@ export type PortfolioArchetype =
 
 // ── ETF record returned by the data layer ─────────────────────────────────────
 export interface ETFRecord {
-  ticker:     string;
-  name:       string;
-  price:      number;           // USD
-  yield:      number;           // decimal (0.087 = 8.7%)
-  cagr:       number | null;    // 1-year price return, decimal
-  leveraged:  boolean;
-  payFreq:    PayFrequency;
-  sparkline:  number[];         // 12 monthly closing prices
-  health:     HealthStatus;     // computed by getHealth()
-  source:     DataSource;
-  lastUpdated: string;
-  categories: string[];
+  ticker:             string;
+  name:               string;
+  price:              number;
+  yield:              number;
+  cagr:               number | null;
+  dividendGrowthRate: number;
+  expenseRatio:       number;
+  volatilityScore:    number;
+  maxDrawdown:        number;
+  leverageFactor:     number;
+  leveraged:          boolean;
+  payFreq:            PayFrequency;
+  payFrequency:       PayFrequency;
+  sparkline:          number[];
+  health:             HealthStatus;
+  source:             DataSource;
+  lastUpdated:        string;
+  categories:         string[];
+  sectorTags:         string[];
+  category:           string;
+  assetClass:         string;
 }
 
 // ── Raw holding input from user ───────────────────────────────────────────────
@@ -61,6 +70,7 @@ export interface RawHolding {
    */
   live:        LiveData | null; // Populated after FMP/StockAnalysis fetch
   fetchStatus: FetchStatus;
+  manualPriceOverride?: number;
 }
 
 // ── Live data returned by fetchTickerData() ───────────────────────────────────
@@ -99,12 +109,18 @@ export interface ProjectionParams {
   years:    number;
   crash?:   number;             // 0–100 (% loss in Year 1)
   pause?:   number;             // Months to pause contributions
+  taxRate?: number;
+  totalMonthlyExpenses?: number;
 }
 
 export interface ProjectionRow {
-  year:      number;
-  portfolio: number;
-  monthly:   number;
+  year:                    number;
+  portfolio:               number;
+  monthly:                 number;
+  annualDividendIncome:    number;
+  cumulativeContributions: number;
+  cumulativeDividends:     number;
+  expensesCoveredPercent:  number;
 }
 
 // ── Portfolio metrics ─────────────────────────────────────────────────────────
@@ -181,11 +197,13 @@ export interface CacheEntry<T = unknown> {
 }
 
 export interface ExpenseGoal {
-  id: string;
-  name: string;
-  amountMonthly: number;
-  enabledForGoal: boolean;
-  createdAt: number;
+  id:               string;
+  name:             string;
+  amountMonthly:    number;
+  enabledForGoal:   boolean;
+  createdAt:        number;
+  label?:           string;
+  amount?:          number;
 }
 
 export type ExpenseCoverageResult = {
@@ -210,6 +228,49 @@ export type OnboardingStep =
 export interface OnboardingState {
   currentStep: OnboardingStep;
   completedAt: number | null;
+}
+
+export interface RecommendationInput {
+  targetIncome:        number;
+  targetPeriod:        "monthly" | "yearly";
+  startingCapital:     number;
+  monthlyContribution: number;
+  riskTolerance:       RiskTolerance;
+  strategy:            Strategy;
+  preferredCategories?: string[];
+}
+
+export interface AutopilotOutput {
+  allocations:       { ticker: string; weight: number }[];
+  etfScores:         Record<string, number>;
+  blendedYield:      number;
+  blendedGrowthRate: number;
+  riskScore:         number;
+  warnings:          string[];
+  notes:             string[];
+  rebalanceActions?: {
+    action:         "buy" | "sell" | "hold";
+    ticker:         string;
+    currentWeight?: number;
+    targetWeight?:  number;
+  }[];
+}
+
+export interface DashboardKPIs {
+  portfolioValue:         number;
+  monthlyDividendIncome:  number;
+  annualDividendIncome:   number;
+  incomeFreedomScore:     number | null;
+  expensesCoveredPercent: number | null;
+  estimatedFreedomYear:   number | null;
+  totalExpenses:          number;
+}
+
+export interface RiskWarning {
+  id:       string;
+  severity: "low" | "medium" | "high";
+  message:  string;
+  detail?:  string;
 }
 
 // ── Strategy definition ───────────────────────────────────────────────────────

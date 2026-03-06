@@ -12,6 +12,7 @@ import type {
   UserGoal,
   } from "./types";
 import { STORAGE_KEYS, clamp, normalizeTicker } from "./utils";
+import { ETF_DB } from "./etf-db";
 import type { Tier } from "./subscription-config";
 
 export interface DFPStore {
@@ -28,7 +29,7 @@ export interface DFPStore {
   setKeyStatus: (status: DFPStore["keyStatus"]) => void;
 
   holdings: RawHolding[];
-  addHolding: (h: Omit<RawHolding, "fetchStatus" | "live">) => void;
+  addHolding: (h: Omit<RawHolding, "fetchStatus" | "live"> & { allowManualAsset?: boolean }) => string | null;
   removeHolding: (ticker: string) => void;
   updateHolding: (ticker: string, patch: Partial<RawHolding>) => void;
   applyLiveData: (ticker: string, data: LiveData) => void;
@@ -133,29 +134,35 @@ export const useDFPStore = create<DFPStore>()(
       setKeyStatus: (status) => set({ keyStatus: status }),
 
       holdings: [],
-      addHolding: (h) =>
+      addHolding: (h) => {
+        const ticker = normalizeTicker(h.ticker);
+        const shares = Number(h.shares);
+        const avgCost = Number(h.avgCost);
+        if (!/^[A-Z]{1,6}$/.test(ticker)) return "Ticker must be 1-6 uppercase letters.";
+        if (!Number.isFinite(shares) || shares <= 0) return "Shares must be greater than 0.";
+        if (!Number.isFinite(avgCost) || avgCost < 0) return "Average cost must be >= 0.";
+        if (!ETF_DB[ticker] && !h.allowManualAsset) return "Ticker not found in ETF registry.";
+
+        let duplicate = false;
         set((state) => {
-          const ticker = normalizeTicker(h.ticker);
-          const shares = clamp(Number(h.shares) || 0, 0, 1_000_000);
-          const avgCost = clamp(Number(h.avgCost) || 0, 0, 100_000);
+          if (state.holdings.some((x) => normalizeTicker(x.ticker) === ticker)) {
+            duplicate = true;
+            return state;
+          }
           const cagrOvr = h.cagrOvr !== null ? clamp(Number(h.cagrOvr) || 0, -1, 10) : null;
           const next: RawHolding = {
             ticker,
-            shares,
-            avgCost,
+            shares: clamp(shares, 0, 1_000_000),
+            avgCost: clamp(avgCost, 0, 100_000),
             cagrOvr,
             fetchStatus: "idle",
             live: null,
+            manualPriceOverride: h.manualPriceOverride,
           };
-
-          const idx = state.holdings.findIndex((x) => normalizeTicker(x.ticker) === ticker);
-          if (idx >= 0) {
-            const updated = [...state.holdings];
-            updated[idx] = { ...updated[idx], ...next };
-            return { holdings: updated };
-          }
           return { holdings: [...state.holdings, next] };
-        }),
+        });
+        return duplicate ? "Ticker already exists in your portfolio." : null;
+      },
       removeHolding: (ticker) =>
         set((state) => ({
           holdings: state.holdings.filter(
@@ -175,7 +182,7 @@ export const useDFPStore = create<DFPStore>()(
                   ticker: normalizeTicker(h.ticker),
                   shares:
                     patch.shares !== undefined
-                      ? clamp(Number(patch.shares) || 0, 0, 1_000_000)
+                      ? clamp(Math.max(Number(patch.shares) || 0, 0.000001), 0.000001, 1_000_000)
                       : h.shares,
                   avgCost:
                     patch.avgCost !== undefined

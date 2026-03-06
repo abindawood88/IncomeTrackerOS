@@ -215,3 +215,23 @@ assert.deepEqual(validateETFCategoryConsistency(), []);
     assert.ok(leveragedWeight <= 0.2 + 1e-9);
   }
 }
+
+{
+  const result = buildRecommendations({
+    strategy: "income",
+    risk: "low",
+    targetMonthly: 1000,
+    capital: 100_000,
+    hasSetCapital: true,
+    targetPeriod: "monthly",
+    preferredTypes: ["Core Dividend"],
+    baseTemplates: [],
+  });
+  const custom = result.templates[0];
+  if (custom) {
+    const total = custom.holdings.reduce((s, h) => s + h.weight, 0);
+    assert.ok(Math.abs(total - 1) < 0.0001);
+    const leveraged = custom.holdings.reduce((s, h) => s + (ETF_DB[h.ticker]?.leveraged ? h.weight : 0), 0);
+    assert.equal(leveraged, 0);
+  }
+}
