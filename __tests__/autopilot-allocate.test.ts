@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { runAutopilot } from '../lib/domain/autopilot/allocate';
 import { ETF_DB } from '../lib/etf-db';
 
+test('autopilot-allocate.test', () => {
 function check(riskTolerance: 'conservative' | 'balanced' | 'aggressive', cap: number) {
   const out = runAutopilot({ targetIncome: 1000, targetPeriod: 'monthly', startingCapital: 10000, monthlyContribution: 500, riskTolerance, strategy: 'income' });
   const total = out.allocations.reduce((s, a) => s + a.weight, 0);
@@ -17,3 +18,5 @@ function check(riskTolerance: 'conservative' | 'balanced' | 'aggressive', cap: n
 check('conservative', 0);
 check('balanced', 0.1);
 check('aggressive', 0.25);
+
+});

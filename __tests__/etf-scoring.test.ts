@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { ETF_DB } from "../lib/etf-db";
 import { rankETFs, scoreETF } from "../lib/etf-scoring";
 
+test('etf-scoring.test', () => {
 {
   const jepi = scoreETF(ETF_DB.JEPI, {
     targetYield: 0.09,
@@ -41,3 +42,5 @@ import { rankETFs, scoreETF } from "../lib/etf-scoring";
   assert.ok(hyper.payFreqScore >= 8);
   assert.ok(growth.total <= 100 && hyper.total <= 100);
 }
+
+});

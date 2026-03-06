@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { scoreEtfAutopilot } from '../lib/domain/autopilot/score';
 import { ETF_DB } from '../lib/etf-db';
 
+test('autopilot-scoring.test', () => {
 {
   const schd = scoreEtfAutopilot(ETF_DB.SCHD);
   const tqqq = scoreEtfAutopilot(ETF_DB.TQQQ);
@@ -15,3 +16,5 @@ import { ETF_DB } from '../lib/etf-db';
     Object.values(s).forEach((v) => assert.ok(v >= 0 && v <= 100));
   });
 }
+
+});

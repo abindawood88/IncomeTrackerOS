@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { computeExpenseCoverage, computeRequiredMonthlyIncomeFromExpenses } from "../lib/expense-coverage";
 import type { ExpenseGoal } from "../lib/types";
 
+test('expense-coverage.test', () => {
 function goal(id: string, name: string, amountMonthly: number, enabledForGoal = true): ExpenseGoal {
   return { id, name, amountMonthly, enabledForGoal, createdAt: 1 };
 }
@@ -55,3 +56,5 @@ function goal(id: string, name: string, amountMonthly: number, enabledForGoal = 
   });
   assert.equal(required, 0);
 }
+
+});

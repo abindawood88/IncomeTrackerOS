@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { parseHoldingsCSV } from "../lib/csv-import";
 
+test('csv-import.test', () => {
 {
   const result = parseHoldingsCSV("ticker,shares,avgCost\nSCHD,100,80.50\nVYM,50,115.00");
   assert.deepEqual(result.valid, [
@@ -46,3 +47,5 @@ import { parseHoldingsCSV } from "../lib/csv-import";
   assert.equal(result.valid.length, 0);
   assert.ok(result.rejected[0].reason.includes("ticker") || result.rejected[0].reason.includes("symbol"));
 }
+
+});

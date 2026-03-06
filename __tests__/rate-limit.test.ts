@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { checkMemoryRateLimit } from "../lib/rate-limit";
 
+test('rate-limit.test', () => {
 const cfg = { limit: 2, windowMs: 1_000, prefix: "test" };
 
 const t0 = 1_000;
@@ -19,3 +20,4 @@ assert.equal(third.remaining, 0);
 const reset = checkMemoryRateLimit("ip-1", cfg, t0 + 2_000);
 assert.equal(reset.allowed, true);
 assert.equal(reset.remaining, 1);
+});

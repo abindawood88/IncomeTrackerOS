@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { useDFPStore, sanitizeGoalPatch } from "../lib/store";
 
+test('store.test', () => {
 function resetStore(): void {
   useDFPStore.setState((state) => ({
     ...state,
@@ -79,3 +80,5 @@ assert.equal(useDFPStore.getState().holdings[0].ticker, "SCHD");
   const patch = sanitizeGoalPatch({ coveragePct: 150 });
   assert.equal(patch.coveragePct, 100);
 }
+
+});

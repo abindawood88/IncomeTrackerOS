@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { ETF_DB, filterEtfs, normalizeEtfRecord, sortEtfs, validateEtfRecord } from '../lib/etf-db';
 
+test('etf-data-layer.test', () => {
 {
   const n = normalizeEtfRecord({ ticker: 'X', price: 1, yield: 0.01 });
   assert.ok(typeof n.expenseRatio === 'number');
@@ -23,3 +24,5 @@ import { ETF_DB, filterEtfs, normalizeEtfRecord, sortEtfs, validateEtfRecord } f
   const byExpense = sortEtfs(etfs, 'expenseRatio', 'asc');
   assert.ok(byExpense[0].expenseRatio <= byExpense[1].expenseRatio);
 }
+
+});
