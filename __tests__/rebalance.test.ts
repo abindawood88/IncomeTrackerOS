@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { computeRebalancePlan } from "../lib/rebalance";
 import type { EnrichedHolding } from "../lib/types";
 
+test('rebalance.test', () => {
 function holding(
   ticker: string,
   shares: number,
@@ -93,3 +94,5 @@ function holding(
   );
   assert.equal(result.actions[0].action, "hold");
 }
+
+});

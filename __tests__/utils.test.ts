@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { clamp, isEtfDataStale, normalizeTicker, roundTo } from "../lib/utils";
 
+test('utils.test', () => {
 assert.equal(normalizeTicker("  schd  "), "SCHD");
 assert.equal(normalizeTicker("VoO"), "VOO");
 assert.equal(normalizeTicker(""), "");
@@ -17,3 +18,4 @@ assert.equal(clamp(50, 0, 100), 50);
 assert.equal(isEtfDataStale("2020-01-01"), true);
 assert.equal(isEtfDataStale(new Date().toISOString().split("T")[0]), false);
 assert.equal(isEtfDataStale("2020-01-01", 9999), false);
+});

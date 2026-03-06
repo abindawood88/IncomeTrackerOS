@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { buildHoldingSeeds, normalizeAllocations } from "../lib/apply-portfolio";
 
+test('apply-portfolio.test', () => {
 {
   const result = normalizeAllocations([
     { ticker: "SCHD", weight: 40 },
@@ -88,3 +89,5 @@ import { buildHoldingSeeds, normalizeAllocations } from "../lib/apply-portfolio"
   assert.equal(result.seeds.length, 0);
   assert.equal(result.skipped.length, 1);
 }
+
+});

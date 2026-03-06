@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { buildDividendCalendar } from "../lib/dividend-calendar";
 import type { EnrichedHolding, PayFrequency } from "../lib/types";
 
+test('dividend-calendar.test', () => {
 function mockHolding(overrides: Partial<EnrichedHolding>): EnrichedHolding {
   return {
     ticker: "MOCK",
@@ -64,3 +65,5 @@ function mockHolding(overrides: Partial<EnrichedHolding>): EnrichedHolding {
   assert.ok("buyByDate" in cal.schedule[0]);
   assert.ok("daysUntilExDiv" in cal.schedule[0]);
 }
+
+});

@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { generateRiskWarnings } from '../lib/domain/risk/warnings';
 import type { EnrichedHolding } from '../lib/types';
 
+test('risk-warnings.test', () => {
 const mk = (ticker: string, value: number, yld: number, leveraged = false): EnrichedHolding => ({ ticker, shares: 1, avgCost: 1, price: value, value, yld, cagr: 0, src: 'local', payFreq: 'monthly', sparkline: [], health: 'STABLE', leveraged, name: ticker });
 
 {
@@ -22,3 +23,5 @@ const mk = (ticker: string, value: number, yld: number, leveraged = false): Enri
   const warnings = generateRiskWarnings([mk('A', 1000, 0.05)], { targetIncome: 500, targetPeriod: 'monthly', capital: 12000 });
   assert.ok(warnings.some((w) => w.id === 'unrealistic-income-target'));
 }
+
+});

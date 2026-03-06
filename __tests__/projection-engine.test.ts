@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { project } from '../lib/engine';
 
+test('projection-engine.test', () => {
 {
   const rows = project({ capital: 10000, monthly: 100, cagr: 0.05, yld: 0.06, drip: false, years: 2, totalMonthlyExpenses: 0 } as any);
   assert.equal(rows[0].annualDividendIncome, rows[0].monthly * 12);
@@ -29,3 +30,5 @@ import { project } from '../lib/engine';
   const rows = project({ capital: -1, monthly: 0, cagr: 0, yld: 0, drip: false, years: 2 } as any);
   rows.forEach((r) => Object.values(r).forEach((v) => assert.ok(Number.isFinite(v))));
 }
+
+});

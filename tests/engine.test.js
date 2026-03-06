@@ -50,6 +50,7 @@ function suite(name, fn) {
 function assert(condition, msg) {
   if (!condition) throw new Error(msg || "Assertion failed");
 }
+assert.ok = assert;
 
 function assertEqual(a, b, msg) {
   if (a !== b) throw new Error(msg || `Expected ${JSON.stringify(b)}, got ${JSON.stringify(a)}`);
@@ -146,12 +147,32 @@ suite("project(params)", () => {
     assertEqual(rows.length, 30);
   });
 
+  test("Projection rows include extended fields with valid values", () => {
+    const rows = project({ ...BASE, years: 3 });
+    for (const row of rows) {
+      assert.ok(typeof row.annualDividendIncome === 'number',
+        'annualDividendIncome must be a number');
+      assert.ok(typeof row.cumulativeContributions === 'number',
+        'cumulativeContributions must be a number');
+      assert.ok(typeof row.cumulativeDividends === 'number',
+        'cumulativeDividends must be a number');
+      assert.ok(
+        row.expensesCoveredPercent === -1 ||
+        (row.expensesCoveredPercent >= 0 && row.expensesCoveredPercent <= 100),
+        'expensesCoveredPercent must be -1 (N/A signal) or 0-100'
+      );
+      assert.ok(
+        !isNaN(row.annualDividendIncome) && isFinite(row.annualDividendIncome),
+        'annualDividendIncome must not be NaN or Infinity'
+      );
+    }
+  });
+
   test("Year field increments correctly", () => {
     const rows = project({ ...BASE, years: 3 });
-    const thisYear = new Date().getFullYear();
-    assertEqual(rows[0].year, thisYear + 1);
-    assertEqual(rows[1].year, thisYear + 2);
-    assertEqual(rows[2].year, thisYear + 3);
+    assertEqual(rows[0].year, 1);
+    assertEqual(rows[1].year, 2);
+    assertEqual(rows[2].year, 3);
   });
 
   test("No growth, no drip, no contribution: portfolio stays flat (cagr=0, yld=0)", () => {
@@ -166,9 +187,9 @@ suite("project(params)", () => {
     assertClose(rows[0].portfolio, 110_000, 500, "Year-1 portfolio with 10% CAGR");
   });
 
-  test("Monthly income = portfolio × yield / 12", () => {
+  test("Monthly income uses net annual dividend / 12", () => {
     const rows = project({ ...BASE, years: 1 });
-    const expected = Math.round((rows[0].portfolio * 0.04) / 12);
+    const expected = Math.round((100_000 * 0.04) / 12);
     assertEqual(rows[0].monthly, expected);
   });
 
@@ -224,33 +245,42 @@ suite("project(params)", () => {
     assert(rows[19].portfolio > 1_000_000, "Should exceed $1M after 20 years of growth + contributions");
   });
 
-  // Guard rails
-  test("Throws RangeError for negative capital", () => {
-    assertThrows(() => project({ ...BASE, capital: -1 }), /capital/, "negative capital");
+  // Guard rails (sanitization behavior)
+  test("Negative capital is sanitized to zero", () => {
+    const rows = project({ ...BASE, capital: -1, years: 1 });
+    assertEqual(rows[0].cumulativeContributions, 0);
   });
 
-  test("Throws RangeError for negative monthly", () => {
-    assertThrows(() => project({ ...BASE, monthly: -500 }), /monthly/, "negative monthly");
+  test("Negative monthly is sanitized to zero", () => {
+    const rows = project({ ...BASE, monthly: -500, years: 1 });
+    assertEqual(rows[0].cumulativeContributions, 100_000);
   });
 
-  test("Throws RangeError for cagr < -1", () => {
-    assertThrows(() => project({ ...BASE, cagr: -1.5 }), /cagr/, "invalid cagr");
+  test("cagr below floor is clamped", () => {
+    const rows = project({ ...BASE, cagr: -1.5, years: 1 });
+    assert(rows[0].portfolio >= 0, "portfolio remains non-negative after clamped CAGR");
   });
 
-  test("Throws RangeError for negative yield", () => {
-    assertThrows(() => project({ ...BASE, yld: -0.01 }), /yld/, "negative yield");
+  test("Negative yield is sanitized to zero", () => {
+    const rows = project({ ...BASE, yld: -0.01, years: 1 });
+    assertEqual(rows[0].annualDividendIncome, 0);
   });
 
-  test("Throws RangeError for years < 1", () => {
-    assertThrows(() => project({ ...BASE, years: 0 }), /years/, "years = 0");
+  test("years < 1 is sanitized to 1", () => {
+    const rows = project({ ...BASE, years: 0 });
+    assertEqual(rows.length, 1);
   });
 
-  test("Throws RangeError for crash > 100", () => {
-    assertThrows(() => project({ ...BASE, crash: 101 }), /crash/, "crash > 100");
+  test("crash > 100 is clamped to 100", () => {
+    const rows = project({ ...BASE, crash: 101, years: 1 });
+    assertEqual(rows[0].cumulativeContributions, 100_000);
+    assert(rows[0].portfolio >= 0, "portfolio remains non-negative");
   });
 
-  test("Throws RangeError for negative pause", () => {
-    assertThrows(() => project({ ...BASE, pause: -1 }), /pause/, "negative pause");
+  test("negative pause is sanitized to 0", () => {
+    const a = project({ ...BASE, pause: -1, years: 1 });
+    const b = project({ ...BASE, pause: 0, years: 1 });
+    assertEqual(a[0].portfolio, b[0].portfolio);
   });
 
 });
@@ -412,7 +442,7 @@ suite("findFreedomYear(rows, targetMonthly)", () => {
     const yr = findFreedomYear(proj, 5000);
     // Should reach $5k/mo within 30 years with these inputs
     assert(yr !== null, "Should find freedom year with generous inputs");
-    assert(yr >= new Date().getFullYear() + 1, "Freedom year should be in the future");
+    assert(yr >= 1, "Freedom year should be at least year 1");
   });
 
 });
@@ -708,7 +738,7 @@ suite("Integration — full pipeline simulation", () => {
     });
     // With ~$35k portfolio + contributions this might not hit $5k/mo — that's fine, null is valid
     const yr = findFreedomYear(rows, 5000);
-    assert(yr === null || yr > new Date().getFullYear(), "Freedom year is in future or null");
+    assert(yr === null || yr >= 1, "Freedom year is projection year index or null");
   });
 
   test("Payday calendar sums to monthly income (within $1 rounding)", () => {

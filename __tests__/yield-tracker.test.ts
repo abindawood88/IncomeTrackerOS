@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { buildYieldTrackerData } from "../lib/yield-tracker";
 
+test('yield-tracker.test', () => {
 {
   const data = buildYieldTrackerData([0, 0, 0, 850, 0, 0, 0, 0, 0, 0, 0, 0], 1200, 1000);
   assert.equal(data[4].estimated, 990);
@@ -43,3 +44,5 @@ import { buildYieldTrackerData } from "../lib/yield-tracker";
   assert.equal(data[2].estimated, 900);
   assert.equal(data[3].estimated, 636);
 }
+
+});
