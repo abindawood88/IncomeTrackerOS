@@ -13,9 +13,10 @@ import {
 import { useLiveCache } from "./cache";
 import { ETF_DB } from "./etf-db";
 import { useDFPStore } from "./store";
-import type { DataSource, EnrichedHolding, LiveData, RawHolding } from "./types";
+import type { DashboardKPIs, DataSource, EnrichedHolding, LiveData, RawHolding } from "./types";
 import { clamp, normalizeTicker } from "./utils";
 import { computeRequiredMonthlyIncomeFromExpenses } from "./expense-coverage";
+import { calculateDashboardKPIs } from "./domain/portfolio/kpis";
 import type { ExpenseGoal, GoalMode } from "./types";
 
 export function enrichHoldings(
@@ -124,9 +125,16 @@ export function useDerivedMetrics() {
       amount: Math.round(w.amount * taxMultiplier),
     }));
     const milestones = milestonesProgress(netMonthlyIncome, targetMonthly);
+    const kpis: DashboardKPIs = calculateDashboardKPIs(
+      enriched,
+      expenseGoals,
+      projData.map((row) => row.monthly),
+      targetMonthly,
+    );
 
     return {
       enriched,
+      kpis,
       ...grossMetrics,
       bYield: netYield,
       monthlyIncome: netMonthlyIncome,

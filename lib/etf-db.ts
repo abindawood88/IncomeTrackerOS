@@ -1,6 +1,55 @@
 import type { ArchetypeDefinition, ETFRecord } from "./types";
 
-export const ETF_DB: Record<string, ETFRecord> = {
+export function normalizeEtfRecord(partial: Partial<ETFRecord> & Pick<ETFRecord, "ticker" | "price" | "yield">): ETFRecord {
+  const payFreq = partial.payFreq ?? partial.payFrequency ?? "quarterly";
+  const leverageFactor = partial.leverageFactor ?? (partial.leveraged ? 2 : 1);
+  const leveraged = partial.leveraged ?? leverageFactor > 1;
+  const base: ETFRecord = {
+    ticker: partial.ticker,
+    name: partial.ticker,
+    price: partial.price,
+    yield: partial.yield,
+    cagr: null,
+    dividendGrowthRate: 0.03,
+    expenseRatio: 0.005,
+    volatilityScore: 50,
+    maxDrawdown: 0.2,
+    leverageFactor: 1,
+    leveraged: false,
+    payFreq: "quarterly",
+    payFrequency: "quarterly",
+    sparkline: [],
+    health: "NEUTRAL",
+    source: "local",
+    lastUpdated: new Date().toISOString().slice(0, 10),
+    categories: [],
+    sectorTags: [],
+    category: "Core Dividend",
+    assetClass: "Equity",
+  };
+
+  return {
+    ...base,
+    ...partial,
+    payFreq,
+    payFrequency: payFreq,
+    leveraged,
+    leverageFactor,
+  };
+}
+
+export function validateEtfRecord(r: ETFRecord): string[] {
+  const errors: string[] = [];
+  if (!r.ticker || typeof r.ticker !== "string") errors.push("ticker required");
+  if (typeof r.price !== "number" || r.price < 0) errors.push("price must be >= 0");
+  if (typeof r.yield !== "number" || r.yield < 0) errors.push("yield must be >= 0");
+  if (r.expenseRatio < 0 || r.expenseRatio > 1) errors.push("expenseRatio must be 0–1");
+  if (r.leverageFactor < 1) errors.push("leverageFactor must be >= 1");
+  return errors;
+}
+
+
+const ETF_DB_RAW: Record<string, Partial<ETFRecord> & Pick<ETFRecord, "ticker" | "price" | "yield">> = {
   // ── High Income / Covered Call ─────────────────────────────────────────────
   JEPI: { ticker:"JEPI", price:58.1,  yield:0.087, cagr:0.060, name:"JPMorgan Equity Premium Income",   leveraged:false, payFreq:"monthly",   sparkline:[56.2,56.8,57.4,57.1,58.0,57.8,58.3,58.1,57.9,58.4,58.2,58.1], health:"STABLE",  source:"local", lastUpdated:"2026-02-01", categories:[] },
   JEPQ: { ticker:"JEPQ", price:54.3,  yield:0.096, cagr:0.072, name:"JPMorgan Nasdaq Equity Premium",   leveraged:false, payFreq:"monthly",   sparkline:[51.2,52.1,53.0,52.7,53.8,54.0,54.5,54.3,54.1,54.4,54.2,54.3], health:"STABLE",  source:"local", lastUpdated:"2026-02-01", categories:[] },
@@ -147,6 +196,75 @@ export const ETF_DB: Record<string, ETFRecord> = {
   HYG:  { ticker:"HYG",  price:79.1,  yield:0.058, cagr:0.022, name:"iShares iBoxx High Yield Corp Bond",leveraged:false,payFreq:"monthly",   sparkline:[78.0,78.4,78.7,78.5,78.9,79.0,79.1,79.3,79.0,79.2,79.1,79.1], health:"STABLE",  source:"local", lastUpdated:"2026-02-01", categories:[] },
   JNK:  { ticker:"JNK",  price:95.4,  yield:0.062, cagr:0.020, name:"SPDR Bloomberg High Yield Bond",   leveraged:false, payFreq:"monthly",   sparkline:[94.0,94.5,94.8,94.6,95.0,95.2,95.4,95.6,95.3,95.5,95.4,95.4], health:"STABLE",  source:"local", lastUpdated:"2026-02-01", categories:[] },
 };
+
+
+const ETF_PATCHES: Record<string, Partial<ETFRecord>> = {
+  JEPI: { dividendGrowthRate: 0.03, expenseRatio: 0.0035, volatilityScore: 28, maxDrawdown: 0.15, leverageFactor: 1, category: "Covered Call", assetClass: "Equity", sectorTags: ["income", "covered-call", "large-cap"] },
+  JEPQ: { dividendGrowthRate: 0.03, expenseRatio: 0.0035, volatilityScore: 32, maxDrawdown: 0.18, leverageFactor: 1, category: "Covered Call", assetClass: "Equity", sectorTags: ["income", "covered-call", "nasdaq"] },
+  SCHD: { dividendGrowthRate: 0.10, expenseRatio: 0.0006, volatilityScore: 20, maxDrawdown: 0.22, leverageFactor: 1, category: "Core Dividend", assetClass: "Equity", sectorTags: ["dividend-growth", "quality"] },
+  VYM: { dividendGrowthRate: 0.07, expenseRatio: 0.0006, volatilityScore: 18, maxDrawdown: 0.20, leverageFactor: 1, category: "Core Dividend", assetClass: "Equity", sectorTags: ["dividend", "large-cap"] },
+  QYLD: { dividendGrowthRate: 0.0, expenseRatio: 0.006, volatilityScore: 30, maxDrawdown: 0.25, leverageFactor: 1, category: "Covered Call", assetClass: "Equity", sectorTags: ["income", "covered-call", "nasdaq"] },
+  TQQQ: { dividendGrowthRate: 0.01, expenseRatio: 0.0086, volatilityScore: 90, maxDrawdown: 0.80, leverageFactor: 3, leveraged: true, category: "Leveraged", assetClass: "Equity", sectorTags: ["leveraged", "nasdaq"] },
+  UPRO: { dividendGrowthRate: 0.01, expenseRatio: 0.0091, volatilityScore: 88, maxDrawdown: 0.78, leverageFactor: 3, leveraged: true, category: "Leveraged", assetClass: "Equity", sectorTags: ["leveraged", "sp500"] },
+  VOO: { dividendGrowthRate: 0.06, expenseRatio: 0.0003, volatilityScore: 16, maxDrawdown: 0.24, leverageFactor: 1, category: "Growth / Index", assetClass: "Equity", sectorTags: ["index", "sp500"] },
+  QQQ: { dividendGrowthRate: 0.04, expenseRatio: 0.002, volatilityScore: 22, maxDrawdown: 0.28, leverageFactor: 1, category: "Growth / Index", assetClass: "Equity", sectorTags: ["index", "nasdaq"] },
+  DVY: { dividendGrowthRate: 0.05, expenseRatio: 0.0038, volatilityScore: 22, maxDrawdown: 0.23, leverageFactor: 1, category: "Core Dividend", assetClass: "Equity", sectorTags: ["dividend", "value"] },
+  DGRO: { dividendGrowthRate: 0.09, expenseRatio: 0.0008, volatilityScore: 19, maxDrawdown: 0.21, leverageFactor: 1, category: "Core Dividend", assetClass: "Equity", sectorTags: ["dividend-growth", "quality"] },
+  PFF: { dividendGrowthRate: 0.01, expenseRatio: 0.0046, volatilityScore: 15, maxDrawdown: 0.20, leverageFactor: 1, category: "Core Dividend", assetClass: "Fixed Income", sectorTags: ["preferred", "income"] },
+  TSLY: { dividendGrowthRate: 0.0, expenseRatio: 0.0099, volatilityScore: 75, maxDrawdown: 0.60, leverageFactor: 1, category: "Option Income", assetClass: "Equity", sectorTags: ["option-income", "single-stock"] },
+  NVDY: { dividendGrowthRate: 0.0, expenseRatio: 0.0099, volatilityScore: 80, maxDrawdown: 0.65, leverageFactor: 1, category: "Option Income", assetClass: "Equity", sectorTags: ["option-income", "single-stock"] },
+};
+
+export const ETF_DB: Record<string, ETFRecord> = Object.fromEntries(
+  Object.entries(ETF_DB_RAW).map(([ticker, etf]) => [ticker, normalizeEtfRecord({ ...etf, ...(ETF_PATCHES[ticker] ?? {}) })]),
+) as Record<string, ETFRecord>;
+
+export function loadEtfRegistry(): ETFRecord[] {
+  return Object.values(ETF_DB).map(normalizeEtfRecord).filter((r) => validateEtfRecord(r).length === 0);
+}
+
+export function filterEtfs(
+  etfs: ETFRecord[],
+  filters: {
+    search?: string;
+    categories?: string[];
+    minYield?: number;
+    maxYield?: number;
+    maxExpenseRatio?: number;
+    maxVolatility?: number;
+    leveraged?: boolean;
+  },
+): ETFRecord[] {
+  return etfs.filter((etf) => {
+    if (filters.search) {
+      const q = filters.search.toLowerCase();
+      if (!etf.ticker.toLowerCase().includes(q) && !etf.name.toLowerCase().includes(q)) return false;
+    }
+    if (filters.categories?.length && !filters.categories.includes(etf.category)) return false;
+    if (filters.minYield !== undefined && etf.yield < filters.minYield) return false;
+    if (filters.maxYield !== undefined && etf.yield > filters.maxYield) return false;
+    if (filters.maxExpenseRatio !== undefined && etf.expenseRatio > filters.maxExpenseRatio) return false;
+    if (filters.maxVolatility !== undefined && etf.volatilityScore > filters.maxVolatility) return false;
+    if (filters.leveraged === false && etf.leveraged) return false;
+    if (filters.leveraged === true && !etf.leveraged) return false;
+    return true;
+  });
+}
+
+export function sortEtfs(
+  etfs: ETFRecord[],
+  sortKey: "yield" | "expenseRatio" | "volatilityScore" | "cagr" | "ticker",
+  direction: "asc" | "desc" = "desc",
+): ETFRecord[] {
+  return [...etfs].sort((a, b) => {
+    if (sortKey === "ticker") {
+      return direction === "desc" ? b.ticker.localeCompare(a.ticker) : a.ticker.localeCompare(b.ticker);
+    }
+    const av = a[sortKey] ?? 0;
+    const bv = b[sortKey] ?? 0;
+    return direction === "desc" ? (bv as number) - (av as number) : (av as number) - (bv as number);
+  });
+}
 
 // ── Portfolio Templates ────────────────────────────────────────────────────────
 
@@ -478,6 +596,7 @@ function populateCategories(): void {
     for (const ticker of tickers) {
       if (ETF_DB[ticker]) {
         ETF_DB[ticker].categories = [...(ETF_DB[ticker].categories ?? []), category];
+        if (!ETF_DB[ticker].category || ETF_DB[ticker].category === "Core Dividend") ETF_DB[ticker].category = category;
       }
     }
   }

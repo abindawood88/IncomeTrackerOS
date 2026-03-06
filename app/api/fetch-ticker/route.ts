@@ -160,7 +160,11 @@ export async function POST(req: NextRequest) {
     if (typeof rawTicker !== "string") {
       return NextResponse.json({ error: "tickers must contain only strings" }, { status: 400 });
     }
-    const sanitized = sanitizeTicker(rawTicker);
+    const raw = rawTicker.trim().toUpperCase();
+    if (!/^[A-Z]{1,6}$/.test(raw)) {
+      return NextResponse.json({ error: `Invalid ticker: ${rawTicker}` }, { status: 400 });
+    }
+    const sanitized = sanitizeTicker(raw);
     if (!sanitized) {
       return NextResponse.json({ error: `Invalid ticker: ${rawTicker}` }, { status: 400 });
     }

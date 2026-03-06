@@ -45,3 +45,13 @@ function goal(id: string, name: string, amountMonthly: number, enabledForGoal = 
   });
   assert.equal(withoutTax, 1050);
 }
+
+{
+  const required = computeRequiredMonthlyIncomeFromExpenses({
+    goals: [goal("1", "Rent", 1000)],
+    coveragePct: 100,
+    taxEnabled: true,
+    taxRate: 100,
+  });
+  assert.equal(required, 0);
+}

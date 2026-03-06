@@ -119,34 +119,66 @@ function getHealth(yld, cagr) {
  * @param {ProjectionParams} params
  * @returns {ProjectionRow[]}
  */
-function project({ capital, monthly, cagr, yld, drip, years, crash = 0, pause = 0 }) {
-  if (capital < 0)  throw new RangeError("capital must be >= 0");
-  if (monthly < 0)  throw new RangeError("monthly must be >= 0");
-  if (cagr < -1)    throw new RangeError("cagr must be >= -1");
-  if (yld < 0)      throw new RangeError("yld must be >= 0");
-  if (years < 1)    throw new RangeError("years must be >= 1");
-  if (crash < 0 || crash > 100) throw new RangeError("crash must be 0–100");
-  if (pause < 0)    throw new RangeError("pause must be >= 0");
+function project(params) {
+  const {
+    capital, monthly, cagr, yld, drip, years,
+    crash = 0, pause = 0,
+    taxRate = 0,
+    totalMonthlyExpenses = 0,
+  } = params;
 
-  // Monthly growth rate via annual CAGR
-  const monthlyGrowth = Math.pow(1 + cagr, 1 / 12) - 1;
-  const currentYear   = new Date().getFullYear();
+  const safeYears = Math.max(1, Math.min(50, Math.floor(years)));
+  const safeYield = Math.max(0, Math.min(0.50, Number.isFinite(yld) ? yld : 0));
+  const safeCagr = Math.max(-0.50, Math.min(0.50, Number.isFinite(cagr) ? cagr : 0));
+  const safeMonthly = Math.max(0, Number.isFinite(monthly) ? monthly : 0);
+  const safeTaxRate = Math.max(0, Math.min(1, Number.isFinite(taxRate) ? taxRate : 0));
 
-  let p = capital * (1 - crash / 100);
+  let portfolioValue = Math.max(0, Number.isFinite(capital) ? capital : 0);
+  if (crash > 0) portfolioValue = portfolioValue * (1 - Math.min(1, crash / 100));
 
-  return Array.from({ length: years }, (_, y) => {
-    for (let m = 1; m <= 12; m++) {
-      const monthIndex   = y * 12 + m;          // 1-indexed global month
-      const contribution = monthIndex > pause ? monthly : 0;
-      const dividends    = drip ? (p * yld) / 12 : 0;
-      p += p * monthlyGrowth + contribution + dividends;
+  let cumulativeContributions = Math.max(0, Number.isFinite(capital) ? capital : 0);
+  let cumulativeDividends = 0;
+  const rows = [];
+
+  for (let year = 1; year <= safeYears; year += 1) {
+    const contributionMonthsThisYear = year === 1
+      ? Math.max(0, 12 - Math.min(12, pause))
+      : (pause > (year - 1) * 12 ? Math.max(0, 12 - (pause - (year - 1) * 12)) : 12);
+
+    const yearlyContribution = safeMonthly * contributionMonthsThisYear;
+    portfolioValue += yearlyContribution;
+    cumulativeContributions += yearlyContribution;
+
+    const grossAnnualDividend = portfolioValue * safeYield;
+    const netAnnualDividend = grossAnnualDividend * (1 - safeTaxRate);
+    cumulativeDividends += netAnnualDividend;
+
+    if (drip) {
+      portfolioValue += netAnnualDividend;
     }
-    return {
-      year:      currentYear + y + 1,
-      portfolio: Math.round(p),
-      monthly:   Math.round((p * yld) / 12),
-    };
-  });
+
+    portfolioValue = portfolioValue * (1 + safeCagr);
+    portfolioValue = Math.max(0, portfolioValue);
+
+    const monthlyDividendIncome = Math.round(netAnnualDividend / 12);
+    const annualDividendIncome = Math.round(netAnnualDividend);
+    const expensesCoveredPercent =
+      totalMonthlyExpenses > 0
+        ? Math.min(100, Math.round((monthlyDividendIncome / totalMonthlyExpenses) * 100))
+        : -1;
+
+    rows.push({
+      year,
+      portfolio: Math.round(portfolioValue),
+      monthly: monthlyDividendIncome,
+      annualDividendIncome,
+      cumulativeContributions: Math.round(cumulativeContributions),
+      cumulativeDividends: Math.round(cumulativeDividends),
+      expensesCoveredPercent,
+    });
+  }
+
+  return rows;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
