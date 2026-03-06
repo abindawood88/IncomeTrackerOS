@@ -11,12 +11,13 @@ export const metadata: Metadata = {
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+  const app = <ToastProvider>{children}</ToastProvider>;
+
   return (
     <html lang="en">
       <body className="bg-bg text-textBright antialiased">
-        <ClerkProvider>
-          <ToastProvider>{children}</ToastProvider>
-        </ClerkProvider>
+        {publishableKey ? <ClerkProvider publishableKey={publishableKey}>{app}</ClerkProvider> : app}
       </body>
     </html>
   );

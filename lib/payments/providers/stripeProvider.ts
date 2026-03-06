@@ -1,11 +1,39 @@
-import Stripe from "stripe";
 import type { PaymentProvider, PaymentStatus } from "@/lib/payments/types";
 import type { Tier } from "@/lib/subscription-config";
 
-function getStripe(): Stripe {
+type StripeLike = {
+  checkout: {
+    sessions: {
+      create: (input: Record<string, unknown>) => Promise<{ url?: string | null }>;
+    };
+  };
+  webhooks: {
+    constructEvent: (body: string, signature: string, secret: string) => StripeEvent;
+  };
+};
+
+type StripeEvent = {
+  type: string;
+  data: {
+    object: {
+      items?: { data?: Array<{ price?: { id?: string | null } | null }> };
+      metadata?: { userId?: string };
+      status?: string;
+    };
+  };
+};
+
+function getStripe(): StripeLike {
   const key = process.env.STRIPE_SECRET_KEY;
   if (!key) throw new Error("STRIPE_SECRET_KEY is not set");
-  return new Stripe(key, { apiVersion: "2024-06-20" });
+
+  const nodeRequire = eval("require") as (id: string) => unknown;
+  const StripeCtor = nodeRequire("stripe") as new (
+    apiKey: string,
+    options: { apiVersion: string }
+  ) => StripeLike;
+
+  return new StripeCtor(key, { apiVersion: "2024-06-20" });
 }
 
 function parseTier(priceId: string | null | undefined): Tier | null {
@@ -15,8 +43,9 @@ function parseTier(priceId: string | null | undefined): Tier | null {
   return null;
 }
 
-function parseStatus(status: Stripe.Subscription.Status): PaymentStatus {
-  const map: Record<Stripe.Subscription.Status, PaymentStatus> = {
+function parseStatus(status: string | undefined): PaymentStatus {
+  if (!status) return "unknown";
+  const map: Record<string, PaymentStatus> = {
     active: "active",
     canceled: "canceled",
     past_due: "past_due",
@@ -60,7 +89,7 @@ export const stripeProvider: PaymentProvider = {
     const body = await request.text();
     const sig = request.headers.get("stripe-signature") ?? "";
 
-    let event: Stripe.Event;
+    let event: StripeEvent;
     try {
       event = stripe.webhooks.constructEvent(body, sig, webhookSecret);
     } catch {
@@ -72,8 +101,8 @@ export const stripeProvider: PaymentProvider = {
       event.type === "customer.subscription.created" ||
       event.type === "customer.subscription.deleted"
     ) {
-      const sub = event.data.object as Stripe.Subscription;
-      const priceId = sub.items.data[0]?.price?.id ?? null;
+      const sub = event.data.object;
+      const priceId = sub.items?.data?.[0]?.price?.id ?? null;
       const userId = (sub.metadata?.userId as string | undefined) ?? null;
       return {
         eventType: event.type,
